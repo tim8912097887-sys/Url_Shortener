@@ -1,4 +1,4 @@
-package main
+package api
 
 import (
 	"context"
@@ -12,15 +12,23 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/adaptor"
+	"github.com/tim8912097887-sys/url-shortener/internal/url"
 )
 
-type api struct{
-	addr string
+type Api struct{
+	Addr string
 }
 
-func (a *api) mount() http.Handler {
+func (a *Api) Mount(logger *slog.Logger) http.Handler {
 	app := fiber.New()
 
+	// Api Versioning
+	api := app.Group("/api")      
+    v1 := api.Group("/v1") 
+	urlGroup := v1.Group("/urls")
+	// Register Url handler
+	handler := url.NewHandler(logger,url.NewService())
+	handler.RegisterRoutes(urlGroup)
 	app.Get("/health", func(c fiber.Ctx) error {
 		return c.SendString("OK")
 	})
@@ -28,9 +36,9 @@ func (a *api) mount() http.Handler {
 	return adaptor.FiberApp(app)
 }
 
-func (a *api) run(ctx context.Context, logger *slog.Logger, h http.Handler, shutdownTimeout time.Duration) error {
+func (a *Api) Run(ctx context.Context, logger *slog.Logger, h http.Handler, shutdownTimeout time.Duration) error {
 	server := &http.Server{
-		Addr:    a.addr,
+		Addr:    a.Addr,
 		Handler: h,
 		ReadTimeout:       5 * time.Second,
         ReadHeaderTimeout: 2 * time.Second,
@@ -42,7 +50,7 @@ func (a *api) run(ctx context.Context, logger *slog.Logger, h http.Handler, shut
 	serverErrorCh := make(chan error, 1)
 	// Start the server with goroutine
 	go func() {
-		logger.Info("starting server",slog.String("address", a.addr))
+		logger.Info("starting server",slog.String("address", a.Addr))
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			logger.Error("failed to start server",slog.Any("error", err))
 			serverErrorCh <- err

@@ -6,6 +6,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/tim8912097887-sys/url-shortener/cmd/api"
 	"github.com/tim8912097887-sys/url-shortener/internal/configs"
 )
 
@@ -23,11 +24,11 @@ func main() {
 		os.Exit(1)
 	}
 
-	app := api{
-		addr: cfg.Addr,
+	app := api.Api{
+		Addr: cfg.Addr,
 	}
 
-	if err := app.run(context.Background(), slog.Default(), app.mount(), 8*time.Second); err != nil {
+	if err := app.Run(context.Background(), slog.Default(), app.Mount(logger), 8*time.Second); err != nil {
 		logger.Error("failed to start server", slog.Any("error", err))
 		os.Exit(1)
 	}
