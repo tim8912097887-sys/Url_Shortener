@@ -12,24 +12,24 @@ type UrlService interface {
 	GetUrl(shortUrl string) (string, error)
 }
 
-type handler struct {
+type Handler struct {
 	logger  *slog.Logger
 	service UrlService
 }
 
-func NewHandler(logger *slog.Logger, service UrlService) handler {
-	return handler{
+func NewHandler(logger *slog.Logger, service UrlService) Handler {
+	return Handler{
 		logger:  logger,
 		service: service,
 	}
 }
 
-func (h *handler) RegisterRoutes(router fiber.Router) {
+func (h *Handler) RegisterRoutes(router fiber.Router) {
      router.Post("/",h.ShortenUrl)
 	 router.Get("/:short_url",h.GetUrl)
 }
 
-func (h *handler) ShortenUrl(c fiber.Ctx) {
+func (h *Handler) ShortenUrl(c fiber.Ctx) {
 	// Validate input
 	validatedInput, err := BindAndValidate[CreateUrlSchema](c)
 
@@ -50,7 +50,7 @@ func (h *handler) ShortenUrl(c fiber.Ctx) {
 	c.Status(fiber.StatusOK).JSON(response.NewSuccessResponse(map[string]string{"shortUrl": shortUrl, "message": "Successfully shorten url"}))
 }
 
-func (h *handler) GetUrl(c fiber.Ctx) {
+func (h *Handler) GetUrl(c fiber.Ctx) {
 	// Validate params
 	validatedParams, err := Validate(GetUrlParams{ShortURL: c.Params("short_url")})
 
