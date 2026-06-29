@@ -1,36 +1,62 @@
 package url
 
-import "errors"
+import "context"
 
-var (
-	ErrUrlNotFound = errors.New("url not found")
-)
-
-type service struct{}
-
-func NewService() *service {
-	return &service{}
+type UrlRepository interface {
+	ShortCodeExists(ctx context.Context, shortUrl string) (bool, error)
+	GetLongUrl(ctx context.Context, shortUrl string) (string, error)
+	CreateShortenUrl(ctx context.Context, longUrl string, shortUrl string) (string, error)
 }
 
-var urlMap = map[string]string{}
+type service struct {
+	repository UrlRepository
+}
 
-func (s *service) ShortenUrl(url string) (string, error) {
-	shortUrl, err := GenerateCode(8)
+func NewService(repository UrlRepository) *service {
+	return &service{
+		repository: repository,
+	}
+}
 
-	if err != nil {
-		return "", err
+func (s *service) ShortenUrl(ctx context.Context, url string) (string, error) {
+	var shortUrl string
+	var err error
+	for {
+
+		shortUrl, err = GenerateCode(8)
+
+		if err != nil {
+			return "", err
+		}
+
+		if existence, err := s.repository.ShortCodeExists(ctx, shortUrl); (err != nil || existence) {
+			if err != nil {
+				return "", err
+			}
+			if existence {
+				continue
+			}
+		}
+
+		break
 	}
 
-	urlMap[shortUrl] = url
+	if _, err = s.repository.CreateShortenUrl(ctx, url, shortUrl); err != nil {
+		return "", err
+	}
 
 	return shortUrl, nil
 }
 
-func (s *service) GetUrl(shortUrl string) (string, error) {
-
-	if url, ok := urlMap[shortUrl]; ok {
-		return url, nil
+func (s *service) GetUrl(ctx context.Context, shortUrl string) (string, error) {
+	var longUrl string
+	var err error
+	if longUrl, err = s.repository.GetLongUrl(ctx, shortUrl); err != nil {
+		if err == ErrUrlNotFound {
+			return "", ErrUrlNotFound
+		}
+		return "", err
 	}
 
-	return "", ErrUrlNotFound
+	return longUrl, nil
 }

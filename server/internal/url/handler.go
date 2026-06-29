@@ -1,6 +1,7 @@
 package url
 
 import (
+	"context"
 	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
@@ -8,8 +9,8 @@ import (
 )
 
 type UrlService interface {
-	ShortenUrl(url string) (string, error)
-	GetUrl(shortUrl string) (string, error)
+	ShortenUrl(ctx context.Context, url string) (string, error)
+	GetUrl(ctx context.Context, shortUrl string) (string, error)
 }
 
 type Handler struct {
@@ -39,7 +40,7 @@ func (h *Handler) ShortenUrl(c fiber.Ctx) {
 		return
 	}
 
-	shortUrl, err := h.service.ShortenUrl(validatedInput.Url)
+	shortUrl, err := h.service.ShortenUrl(c.Context(),validatedInput.Url)
 
 	if err != nil {
 		h.logger.Error("failed to shorten url",slog.Any("error", err),slog.String("context","shorten url"))
@@ -60,7 +61,7 @@ func (h *Handler) GetUrl(c fiber.Ctx) {
 		return
 	}
 
-	longUrl, err := h.service.GetUrl(validatedParams.ShortURL)
+	longUrl, err := h.service.GetUrl(c.Context(),validatedParams.ShortURL)
 
 	// Handle business logic error
 	if err == ErrUrlNotFound {

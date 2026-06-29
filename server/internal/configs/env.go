@@ -8,6 +8,7 @@ import (
 
 type Configs struct{
 	Addr string
+	DbUrl string
 }
 
 func InitConfigs() (Configs, error) {
@@ -17,6 +18,7 @@ func InitConfigs() (Configs, error) {
     }
 	return Configs{
 		Addr: getEnv("ADDR", ":8080"),
+		DbUrl: getEnv("DB_URL","postgres://postgres:password@db:5432/url_shortener?sslmode=disable"),
 	},nil
 }
 

@@ -1,0 +1,41 @@
+services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: url_shortener
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d url_shortener"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+  server-migrate:
+    build: ./server
+    env_file:
+      - ./server/.env
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: on-failure
+    entrypoint: ["/go/bin/migration/migrate"]
+  server:
+    build: ./server
+    ports:
+      - "8080:8080"
+    env_file:
+      - ./server/.env
+    depends_on:
+      db:
+        condition: service_healthy
+      server-migrate:
+        condition: service_completed_successfully
+    restart: always
+
+volumes:
+  pgdata:
