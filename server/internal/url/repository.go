@@ -3,6 +3,7 @@ package url
 import (
 	"context"
 	"errors"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -34,23 +35,25 @@ func (r *repository) ShortCodeExists(ctx context.Context,shortUrl string) (bool,
 	return true, nil
 }
 
-func (r *repository) GetLongUrl(ctx context.Context,shortUrl string) (string, error) {
+func (r *repository) GetLongUrl(ctx context.Context,shortUrl string) (string, time.Time, error) {
 
 	var longUrl string
-	sql := `SELECT urls_map.long_url FROM urls_map
+	var expiredAt time.Time
+
+	sql := `SELECT urls_map.long_url,urls_map.expired_at FROM urls_map
 	        JOIN unique_urls ON unique_urls.id = urls_map.short_url_id
 	        WHERE unique_urls.url = $1;
 			`
-	err := r.pool.QueryRow(ctx, sql, shortUrl).Scan(&longUrl)
+	err := r.pool.QueryRow(ctx, sql, shortUrl).Scan(&longUrl,&expiredAt)
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", ErrUrlNotFound
+		return "", time.Time{}, ErrUrlNotFound
 	}
 	if err != nil {
-		return "", err
+		return "", time.Time{}, err
 	}
 
-	return longUrl, nil
+	return longUrl, expiredAt, nil
 }
 
 func (r *repository) CreateShortenUrl(
@@ -73,7 +76,7 @@ func (r *repository) CreateShortenUrl(
 		return "", err
 	}
 
-	sql = `INSERT INTO urls_map (short_url_id, long_url) VALUES ($1, $2);`
+	sql = `INSERT INTO urls_map (short_url_id, long_url, expired_at) VALUES ($1, $2, NOW() + INTERVAL '30 days');`
 	if _, err := tx.Exec(ctx, sql, id, longUrl); err != nil {
 		return "", err
 	}

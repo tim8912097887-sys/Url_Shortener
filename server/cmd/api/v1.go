@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/adaptor"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 	"github.com/tim8912097887-sys/url-shortener/internal/url"
 )
 
@@ -20,7 +21,7 @@ type Api struct{
 	Addr string
 }
 
-func (a *Api) Mount(ctx context.Context,logger *slog.Logger,pool *pgxpool.Pool) http.Handler {
+func (a *Api) Mount(ctx context.Context,logger *slog.Logger,pool *pgxpool.Pool,cache *redis.Client) http.Handler {
 	app := fiber.New()
 
 	// Api Versioning
@@ -29,7 +30,7 @@ func (a *Api) Mount(ctx context.Context,logger *slog.Logger,pool *pgxpool.Pool) 
 	urlGroup := v1.Group("/urls")
 	// Register Url handler
 	repository := url.NewRepository(pool)
-	service := url.NewService(repository)
+	service := url.NewService(repository,cache,logger)
 	handler := url.NewHandler(logger,service)
 	handler.RegisterRoutes(urlGroup)
 	app.Get("/health", func(c fiber.Ctx) error {

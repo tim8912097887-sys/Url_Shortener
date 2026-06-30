@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/tim8912097887-sys/url-shortener/cmd/api"
+	"github.com/tim8912097887-sys/url-shortener/internal/cache"
 	"github.com/tim8912097887-sys/url-shortener/internal/configs"
 	"github.com/tim8912097887-sys/url-shortener/internal/db"
 )
@@ -37,11 +38,22 @@ func main() {
 	// Close the connection pool
 	defer pool.Close()
 
+	rdb := cache.NewRedisClient(cfg.RedisAddr,cfg.RedisPassword,cfg.RedisDB)
+	cache,err := cache.CacheInit(ctx, logger,rdb)
+
+	if err != nil {
+		logger.Error("failed to connect to redis", slog.Any("error", err))
+		os.Exit(1)
+	}
+
+	// Close the connection pool
+	defer cache.Close()
+
 	app := api.Api{
 		Addr: cfg.Addr,
 	}
 
-	if err := app.Run(context.Background(), slog.Default(), app.Mount(ctx,logger,pool), 8*time.Second); err != nil {
+	if err := app.Run(context.Background(), slog.Default(), app.Mount(ctx,logger,pool,cache), 8*time.Second); err != nil {
 		logger.Error("failed to start server", slog.Any("error", err))
 		os.Exit(1)
 	}
