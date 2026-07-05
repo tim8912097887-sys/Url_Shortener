@@ -45,6 +45,13 @@ func main() {
 	// Close the connection pool
 	defer pool.Close()
 
+	// Start the cleanup service in a goroutine
+	go func() {
+		if err := db.NewCleanupService(pool, logger).Start(ctx); err != nil {
+			logger.Error("failed to start cleanup service", slog.Any("error", err))
+		}
+	}()
+
 	rdb := cache.NewRedisClient(cfg.RedisAddr,cfg.RedisPassword,cfg.RedisDB)
 	cache,err := cache.CacheInit(ctx, logger,rdb)
 
