@@ -40,7 +40,7 @@ func (h *Handler) ShortenUrl(c fiber.Ctx) {
 		return
 	}
 
-	shortUrl, err := h.service.ShortenUrl(c.Context(),validatedInput.Url)
+	shortUrl, err := h.service.ShortenUrl(c.RequestCtx(),validatedInput.Url)
 
 	if err != nil {
 		h.logger.Error("failed to shorten url",slog.Any("error", err),slog.String("context","shorten url"))
@@ -61,7 +61,7 @@ func (h *Handler) GetUrl(c fiber.Ctx) {
 		return
 	}
 
-	longUrl, err := h.service.GetUrl(c.Context(),validatedParams.ShortURL)
+	longUrl, err := h.service.GetUrl(c.RequestCtx(),validatedParams.ShortURL)
 
 	// Handle business logic error
 	if err == ErrUrlNotFound {

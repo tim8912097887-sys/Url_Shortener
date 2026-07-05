@@ -4,6 +4,8 @@ import (
 	"context"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 	"time"
 
 	"github.com/tim8912097887-sys/url-shortener/cmd/api"
@@ -26,7 +28,12 @@ func main() {
 		os.Exit(1)
 	}
 
-    ctx := context.Background()
+    ctx, stop := signal.NotifyContext(
+		context.Background(),
+		os.Interrupt,
+		syscall.SIGTERM,
+	)
+	defer stop()
 
 	pool,err := db.Init(logger,ctx,cfg.DbUrl)
 
@@ -53,7 +60,7 @@ func main() {
 		Addr: cfg.Addr,
 	}
 
-	if err := app.Run(context.Background(), slog.Default(), app.Mount(ctx,logger,pool,cache), 8*time.Second); err != nil {
+	if err := app.Run(ctx, slog.Default(), app.Mount(logger,pool,cache), 8*time.Second); err != nil {
 		logger.Error("failed to start server", slog.Any("error", err))
 		os.Exit(1)
 	}

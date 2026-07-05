@@ -5,9 +5,6 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
-	"os"
-	"os/signal"
-	"syscall"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
@@ -21,7 +18,7 @@ type Api struct{
 	Addr string
 }
 
-func (a *Api) Mount(ctx context.Context,logger *slog.Logger,pool *pgxpool.Pool,cache *redis.Client) http.Handler {
+func (a *Api) Mount(logger *slog.Logger,pool *pgxpool.Pool,cache *redis.Client) http.Handler {
 	app := fiber.New()
 
 	// Api Versioning
@@ -60,19 +57,12 @@ func (a *Api) Run(ctx context.Context, logger *slog.Logger, h http.Handler, shut
 			serverErrorCh <- err
 		}
 	}()
-	shutdownCh := make(chan os.Signal, 1)
-	// Notify the serverErrorCh when the shutdown signal is received
-	signal.Notify(shutdownCh, os.Interrupt, syscall.SIGTERM)
-
-	defer signal.Stop(shutdownCh)
 
 	select {
 		case <-ctx.Done():
 			logger.Info("shutting down the server",slog.String("reason", ctx.Err().Error()))
 		case err := <-serverErrorCh:
 			return err
-		case <-shutdownCh:
-			logger.Info("shutting down the server",slog.String("reason", "signal received"))
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
