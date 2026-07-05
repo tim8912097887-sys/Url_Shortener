@@ -76,7 +76,7 @@ func (r *repository) CreateShortenUrl(
 	if err := tx.QueryRow(ctx, sql, shortUrl).Scan(&id); err != nil {
 		return "", err
 	}
-
+	
 	sql = `INSERT INTO urls_map (short_url_id, long_url, expired_at) VALUES ($1, $2, NOW() + INTERVAL '30 days');`
 	if _, err := tx.Exec(ctx, sql, id, longUrl); err != nil {
 		return "", err
