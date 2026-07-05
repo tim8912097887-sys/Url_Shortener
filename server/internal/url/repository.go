@@ -42,7 +42,8 @@ func (r *repository) GetLongUrl(ctx context.Context,shortUrl string) (string, ti
 
 	sql := `SELECT urls_map.long_url,urls_map.expired_at FROM urls_map
 	        JOIN unique_urls ON unique_urls.id = urls_map.short_url_id
-	        WHERE unique_urls.url = $1;
+	        WHERE unique_urls.url = $1
+			AND urls_map.expired_at > NOW();
 			`
 	err := r.pool.QueryRow(ctx, sql, shortUrl).Scan(&longUrl,&expiredAt)
 
