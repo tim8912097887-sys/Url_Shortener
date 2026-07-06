@@ -9,6 +9,8 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/adaptor"
+
+	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 	"github.com/tim8912097887-sys/url-shortener/internal/url"
@@ -21,6 +23,12 @@ type Api struct{
 func (a *Api) Mount(logger *slog.Logger,pool *pgxpool.Pool,cache *redis.Client) http.Handler {
 	app := fiber.New()
 
+	// Configure cors
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: []string{"http://localhost:5173"},
+		AllowMethods: []string{"POST","GET"},
+		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
+	}))
 	// Api Versioning
 	api := app.Group("/api")      
     v1 := api.Group("/v1") 
