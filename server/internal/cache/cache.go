@@ -21,30 +21,26 @@ func CacheInit(ctx context.Context,logger *slog.Logger,rdb *redis.Client) (*redi
 	return rdb, nil
 }
 
-func NewRedisClient(addr string, password string, db int) *redis.Client {
+func NewRedisClient(logger *slog.Logger,redisURL string) *redis.Client {
     // Configure the client with production-ready settings
-    rdb := redis.NewClient(&redis.Options{
-        // Server address and credentials
-        Addr:     addr,
-        Password: password,
-        DB:       db,
+    opts, err := redis.ParseURL(redisURL)
+    if err != nil {
+        logger.Error("failed to parse redis url",slog.Any("error", err))
+        return nil
+    }
 
-        // Connection pool settings
-        PoolSize:     10,              // Maximum number of connections
-        MinIdleConns: 5,               // Minimum idle connections to maintain
-        PoolTimeout:  30 * time.Second, // Time to wait for a connection from pool
+    // Apply custom connection pool & timeout overrides
+    opts.PoolSize = 10
+    opts.MinIdleConns = 5
+    opts.PoolTimeout = 30 * time.Second
+    opts.DialTimeout = 5 * time.Second
+    opts.ReadTimeout = 3 * time.Second
+    opts.WriteTimeout = 3 * time.Second
+    opts.MaxRetries = 3
+    opts.MinRetryBackoff = 8 * time.Millisecond
+    opts.MaxRetryBackoff = 512 * time.Millisecond
 
-        // Timeouts for various operations
-        DialTimeout:  5 * time.Second,  // Timeout for establishing new connections
-        ReadTimeout:  3 * time.Second,  // Timeout for read operations
-        WriteTimeout: 3 * time.Second,  // Timeout for write operations
-
-        // Retry configuration
-        MaxRetries:      3,                      // Maximum number of retries
-        MinRetryBackoff: 8 * time.Millisecond,   // Minimum backoff between retries
-        MaxRetryBackoff: 512 * time.Millisecond, // Maximum backoff between retries
-
-    })
+    rdb := redis.NewClient(opts)
 
     return rdb
 }

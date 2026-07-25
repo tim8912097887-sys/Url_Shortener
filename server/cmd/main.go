@@ -52,7 +52,7 @@ func main() {
 		}
 	}()
 
-	rdb := cache.NewRedisClient(cfg.RedisAddr,cfg.RedisPassword,cfg.RedisDB)
+	rdb := cache.NewRedisClient(logger,cfg.RedisUrl)
 	cache,err := cache.CacheInit(ctx, logger,rdb)
 
 	if err != nil {
