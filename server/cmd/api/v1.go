@@ -20,6 +20,7 @@ import (
 
 type Api struct{
 	Addr string
+	ClientOrigin string
 }
 
 func (a *Api) Mount(logger *slog.Logger,pool *pgxpool.Pool,cache *redis.Client) http.Handler {
@@ -27,7 +28,7 @@ func (a *Api) Mount(logger *slog.Logger,pool *pgxpool.Pool,cache *redis.Client) 
 
 	// Configure cors
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: []string{"http://localhost:5173"},
+		AllowOrigins: []string{a.ClientOrigin},
 		AllowMethods: []string{"POST","GET"},
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
 	}))

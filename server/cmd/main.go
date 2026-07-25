@@ -65,6 +65,7 @@ func main() {
 
 	app := api.Api{
 		Addr: cfg.Addr,
+		ClientOrigin: cfg.ClientOrigin,
 	}
 
 	if err := app.Run(ctx, slog.Default(), app.Mount(logger,pool,cache), 8*time.Second); err != nil {

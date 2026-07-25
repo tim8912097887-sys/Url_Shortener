@@ -9,6 +9,7 @@ import (
 
 type Configs struct{
 	Addr string
+	ClientOrigin string
 	DbUrl string
 	RedisUrl string
 }
@@ -18,6 +19,7 @@ func InitConfigs() (Configs, error) {
 	
 	return Configs{
 		Addr: getEnv("ADDR", ":8080"),
+		ClientOrigin: getEnv("CLIENT_ORIGIN", "http://localhost:5173"),
 		DbUrl: getEnv("DB_URL","postgres://postgres:password@db:5432/url_shortener?sslmode=disable"),
 		RedisUrl: getEnv("REDIS_URL","redis://redis:6379"),
 	},nil
