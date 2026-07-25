@@ -1,0 +1,20 @@
+package middleware
+
+import (
+	"github.com/gofiber/fiber/v3"
+	"github.com/tim8912097887-sys/url-shortener/internal/shared/response"
+)
+
+type RateLimiter interface {
+	Allow() bool
+	AllowN(n int) bool
+}
+
+func RateLimitMiddleware(limiter RateLimiter) fiber.Handler {
+	return func(c fiber.Ctx) error {
+		if !limiter.Allow() {
+			return c.Status(fiber.StatusTooManyRequests).JSON(response.NewErrorResponse("TOO_MANY_REQUEST","Too many requests, please slow down.")) 
+		}
+		return c.Next()
+	}
+}

@@ -13,6 +13,8 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/tim8912097887-sys/url-shortener/internal/shared/middleware"
+	"github.com/tim8912097887-sys/url-shortener/internal/shared/ratelimiter"
 	"github.com/tim8912097887-sys/url-shortener/internal/url"
 )
 
@@ -33,6 +35,10 @@ func (a *Api) Mount(logger *slog.Logger,pool *pgxpool.Pool,cache *redis.Client) 
 	api := app.Group("/api")      
     v1 := api.Group("/v1") 
 	urlGroup := v1.Group("/urls")
+
+	// Rate Limiting
+    rateLimiter := ratelimiter.NewRateLimiter(20, 10)
+	urlGroup.Use(middleware.RateLimitMiddleware(rateLimiter))
 	// Register Url handler
 	repository := url.NewRepository(pool)
 	service := url.NewService(repository,cache,logger)
