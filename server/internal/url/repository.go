@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	urlerror "github.com/tim8912097887-sys/url-shortener/internal/shared/error/url_error"
 )
 
 type repository struct {
@@ -48,7 +49,7 @@ func (r *repository) GetLongUrl(ctx context.Context,shortUrl string) (string, ti
 	err := r.pool.QueryRow(ctx, sql, shortUrl).Scan(&longUrl,&expiredAt)
 
 	if errors.Is(err, pgx.ErrNoRows) {
-		return "", time.Time{}, ErrUrlNotFound
+		return "", time.Time{}, urlerror.ErrUrlNotFound
 	}
 	if err != nil {
 		return "", time.Time{}, err

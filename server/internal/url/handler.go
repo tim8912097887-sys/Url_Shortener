@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
+	urlerror "github.com/tim8912097887-sys/url-shortener/internal/shared/error/url_error"
 	"github.com/tim8912097887-sys/url-shortener/internal/shared/response"
 )
 
@@ -64,7 +65,7 @@ func (h *Handler) GetUrl(c fiber.Ctx) {
 	longUrl, err := h.service.GetUrl(c.RequestCtx(),validatedParams.ShortURL)
 
 	// Handle business logic error
-	if err == ErrUrlNotFound {
+	if err == urlerror.ErrUrlNotFound {
 		h.logger.Error("failed to get long url",slog.Any("error", err),slog.String("context","get long url"))
 		c.Status(fiber.StatusNotFound).JSON(response.NewErrorResponse("url_not_found", err.Error()))
 		return
