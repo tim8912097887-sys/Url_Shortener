@@ -15,6 +15,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	"github.com/redis/go-redis/v9"
+	urlerror "github.com/tim8912097887-sys/url-shortener/internal/shared/error/url_error"
 	"github.com/tim8912097887-sys/url-shortener/internal/shared/response"
 	"github.com/tim8912097887-sys/url-shortener/internal/url"
 )
@@ -242,7 +243,7 @@ func TestGetUrlBusinessLogic(t *testing.T) {
 	t.Run("when provide valid but not exist short url,should response with Not Found Error", func(t *testing.T) {
 		// Arrange
 		mockRepository := InitMockRepository()
-		mockRepository.GetLongUrlFunc = func(ctx context.Context, shortUrl string) (string, time.Time, error) {return "",time.Time{},url.ErrUrlNotFound}
+		mockRepository.GetLongUrlFunc = func(ctx context.Context, shortUrl string) (string, time.Time, error) {return "",time.Time{},urlerror.ErrUrlNotFound}
 		mockCache := InitMockCache()
 		handler := wireupHandler(t,mockRepository, mockCache)
 		app := setupRouter(t,handler)

@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/redis/go-redis/v9"
+	urlerror "github.com/tim8912097887-sys/url-shortener/internal/shared/error/url_error"
 )
 
 const (
@@ -89,8 +90,8 @@ func (s *service) GetUrl(ctx context.Context, shortUrl string) (string, error) {
 	}
 
 	if longUrl, remainingTime, err = s.repository.GetLongUrl(ctx, shortUrl); err != nil {
-		if err == ErrUrlNotFound {
-			return "", ErrUrlNotFound
+		if err == urlerror.ErrUrlNotFound {
+			return "", urlerror.ErrUrlNotFound
 		}
 		return "", err
 	}
@@ -98,7 +99,7 @@ func (s *service) GetUrl(ctx context.Context, shortUrl string) (string, error) {
 	timeUntilExpiry := time.Until(remainingTime)
 	
 	if timeUntilExpiry < 0 {
-		return "", ErrUrlNotFound
+		return "", urlerror.ErrUrlNotFound
 	}
 
 	cacheTTL := min(CacheTTL, timeUntilExpiry)

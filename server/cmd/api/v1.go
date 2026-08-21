@@ -15,7 +15,9 @@ import (
 	"github.com/redis/go-redis/v9"
 	"github.com/tim8912097887-sys/url-shortener/internal/shared/middleware"
 	"github.com/tim8912097887-sys/url-shortener/internal/shared/ratelimiter"
+	jwttoken "github.com/tim8912097887-sys/url-shortener/internal/shared/util/jwt_token"
 	"github.com/tim8912097887-sys/url-shortener/internal/url"
+	"github.com/tim8912097887-sys/url-shortener/internal/user"
 )
 
 type Api struct{
@@ -32,23 +34,33 @@ func (a *Api) Mount(logger *slog.Logger,pool *pgxpool.Pool,cache *redis.Client) 
 		AllowMethods: []string{"POST","GET"},
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
 	}))
+
+	// Utils
+	tokenManager := jwttoken.NewTokenManager("access_secret", "refresh_secret")
+
 	// Api Versioning
 	api := app.Group("/api")      
     v1 := api.Group("/v1") 
 	urlGroup := v1.Group("/urls")
+    userGroup := v1.Group("/users")
 
 	// Rate Limiting
     rateLimiter := ratelimiter.NewRateLimiter(20, 10)
 	urlGroup.Use(middleware.RateLimitMiddleware(rateLimiter))
 	// Register Url handler
-	repository := url.NewRepository(pool)
-	service := url.NewService(repository,cache,logger)
-	handler := url.NewHandler(logger,service)
-	handler.RegisterRoutes(urlGroup)
+	urlRepository := url.NewRepository(pool)
+	urlService := url.NewService(urlRepository,cache,logger)
+	urlHandler := url.NewHandler(logger,urlService)
+	urlHandler.RegisterRoutes(urlGroup)
 	app.Get("/health", func(c fiber.Ctx) error {
 		return c.SendString("OK")
 	})
 
+	// Register user handler
+    userRepository := user.NewRepository(pool)
+	userService := user.NewService(userRepository,*tokenManager,logger)
+	userHandler := user.NewHandler(logger,userService,*tokenManager)
+	userHandler.RegisterRoutes(userGroup)
 	return adaptor.FiberApp(app)
 }
 
