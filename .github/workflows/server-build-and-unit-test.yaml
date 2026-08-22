@@ -25,11 +25,8 @@ jobs:
       - name: Build
         run: go build -v ./...
       - name: Test User
-        working-directory: ./internal/user
-        run: go test -v ./handler_test.go
+        run: go test -v ./internal/user/handler_test.go
       - name: Test Url
-        working-directory: ./internal/url
-        run: go test -v ./handler_test.go
+        run: go test -v ./internal/url/handler_test.go
       - name: Test OAuth
-        working-directory: ./internal/oauth
-        run: go test -v ./handler_test.go
+        run: go test -v ./internal/oauth/handler_test.go
