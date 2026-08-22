@@ -16,11 +16,11 @@ import (
 	"github.com/gofiber/fiber/v3"
 	"github.com/redis/go-redis/v9"
 	urlerror "github.com/tim8912097887-sys/url-shortener/internal/shared/error/url_error"
-	"github.com/tim8912097887-sys/url-shortener/internal/shared/response"
+	"github.com/tim8912097887-sys/url-shortener/internal/shared/response/envelope"
 	"github.com/tim8912097887-sys/url-shortener/internal/url"
 )
 
-func decodeResponse[T any](t *testing.T,resp *http.Response) T {
+func decodeResponse[T any](t *testing.T, resp *http.Response) T {
 	t.Helper()
 	var payload T
 	err := json.NewDecoder(resp.Body).Decode(&payload)
@@ -42,34 +42,41 @@ func wireupHandler(
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, handlerOpts))
 
-	service := url.NewService(repo, cache, logger)
-	handler := url.NewHandler(logger, service)
+	service := url.NewService(&url.ServiceConfig{
+		Repository: repo,
+		Cache:      cache,
+		Logger:     logger,
+	})
+	handler := url.NewHandler(url.HandlerConfig{
+		Logger:  logger,
+		Service: service,
+	})
 
 	return &handler
 }
 
-func setupRouter(t *testing.T,h *url.Handler) *fiber.App {
+func setupRouter(t *testing.T, h *url.Handler) *fiber.App {
 	t.Helper()
 	app := fiber.New()
-    urlGroup := app.Group("/api/v1/urls")
+	urlGroup := app.Group("/api/v1/urls")
 	h.RegisterRoutes(urlGroup)
 	return app
 }
 
-func shortenUrlRequest(t *testing.T,app *fiber.App,payload url.CreateUrlSchema) *http.Response {
+func shortenUrlRequest(t *testing.T, app *fiber.App, payload url.CreateUrlSchema) *http.Response {
 	t.Helper()
 	// Serialize payload
-    body,err := json.Marshal(payload)
+	body, err := json.Marshal(payload)
 	if err != nil {
 		t.Fatal(err)
 	}
 	// Construct request
-	req := httptest.NewRequest(http.MethodPost,"/api/v1/urls",bytes.NewReader(body))
-	req.Header.Set("Content-Type","application/json")
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/urls", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
 
 	// Make request
-	resp, err := app.Test(req,fiber.TestConfig{
-	    Timeout: -1,
+	resp, err := app.Test(req, fiber.TestConfig{
+		Timeout: -1,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -77,15 +84,15 @@ func shortenUrlRequest(t *testing.T,app *fiber.App,payload url.CreateUrlSchema) 
 	return resp
 }
 
-func getUrlRequest(t *testing.T,app *fiber.App,params string) *http.Response {
+func getUrlRequest(t *testing.T, app *fiber.App, params string) *http.Response {
 	t.Helper()
 	urlString := "/api/v1/urls/" + params
 	// Construct request
-	req := httptest.NewRequest(http.MethodGet,urlString,bytes.NewReader([]byte{}))
+	req := httptest.NewRequest(http.MethodGet, urlString, bytes.NewReader([]byte{}))
 
 	// Make request
-	resp, err := app.Test(req,fiber.TestConfig{
-	    Timeout: -1,
+	resp, err := app.Test(req, fiber.TestConfig{
+		Timeout: -1,
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -97,25 +104,25 @@ func TestShortenUrlValidation(t *testing.T) {
 
 	mockRepository := InitMockRepository()
 	mockCache := InitMockCache()
-	handler := wireupHandler(t,mockRepository, mockCache)
+	handler := wireupHandler(t, mockRepository, mockCache)
 
 	t.Run("when provide invalid url,should response with Invalid Input Error", func(t *testing.T) {
 		// Arrange
-        payload := url.CreateUrlSchema{Url: "invalid url"}
-		app := setupRouter(t,handler)
+		payload := url.CreateUrlSchema{Url: "invalid url"}
+		app := setupRouter(t, handler)
 		// Act
-		resp := shortenUrlRequest(t,app,payload)
+		resp := shortenUrlRequest(t, app, payload)
 		// Assert
 		if resp.StatusCode != http.StatusBadRequest {
-			t.Fatalf("expected status code %d but got %d",http.StatusBadRequest,resp.StatusCode)
+			t.Fatalf("expected status code %d but got %d", http.StatusBadRequest, resp.StatusCode)
 		}
 
-		errorResponse := decodeResponse[response.ErrorResponse](t,resp)
-		if errorResponse.Error.Code != "invalid_input" {
-			t.Errorf("expected error code %s but got %s", "invalid_input",errorResponse.Error.Code)
+		errorResponse := decodeResponse[envelope.ErrorResponse](t, resp)
+		if errorResponse.Error.Code != "INVALID_INPUT" {
+			t.Errorf("expected error code %s but got %s", "invalid_input", errorResponse.Error.Code)
 		}
 		if !strings.Contains(errorResponse.Error.Message, "url") {
-			t.Errorf("expected error message contains %s but got %s", "url",errorResponse.Error.Message)
+			t.Errorf("expected error message contains %s but got %s", "url", errorResponse.Error.Message)
 		}
 	})
 }
@@ -126,40 +133,48 @@ func TestShortenUrlSuccess(t *testing.T) {
 		// Arrange
 		mockRepository := InitMockRepository()
 		mockCache := InitMockCache()
-		handler := wireupHandler(t,mockRepository, mockCache)
+		handler := wireupHandler(t, mockRepository, mockCache)
 		payload := url.CreateUrlSchema{Url: "https://www.google.com/"}
-		app := setupRouter(t,handler)
+		app := setupRouter(t, handler)
 		// Act
-		resp := shortenUrlRequest(t,app,payload)
+		resp := shortenUrlRequest(t, app, payload)
 		// Assert
 		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("expected status code %d but got %d",http.StatusOK,resp.StatusCode)
+			t.Fatalf("expected status code %d but got %d", http.StatusOK, resp.StatusCode)
 		}
 
-		successResponse := decodeResponse[response.SuccessResponse](t,resp)
+		successResponse := decodeResponse[envelope.SuccessResponse](t, resp)
 		if successResponse.Data.(map[string]any)["message"] != "Successfully shorten url" {
-			t.Errorf("expected message %s but got %s", "Successfully shorten url",successResponse.Data.(map[string]string)["message"])
+			t.Errorf("expected message %s but got %s", "Successfully shorten url", successResponse.Data.(map[string]string)["message"])
+		}
+		if len(successResponse.Data.(map[string]any)["shortUrl"].(string)) != 8 {
+			t.Errorf("expected short url length %d but got %d", 8, len(successResponse.Data.(map[string]any)["shortUrl"].(string)))
 		}
 	})
 
 	t.Run("when set cache failed,should still response with Success", func(t *testing.T) {
 		// Arrange
-	    mockRepository := InitMockRepository()
-	    mockCache := InitMockCache()
-	    mockCache.SetFunc = func(ctx context.Context, key string, value any, expiration time.Duration) *redis.StatusCmd {return redis.NewStatusResult("error",errors.New("error"))}
-	    handler := wireupHandler(t,mockRepository, mockCache)
+		mockRepository := InitMockRepository()
+		mockCache := InitMockCache()
+		mockCache.SetFunc = func(ctx context.Context, key string, value any, expiration time.Duration) error {
+			return errors.New("error")
+		}
+		handler := wireupHandler(t, mockRepository, mockCache)
 		payload := url.CreateUrlSchema{Url: "https://www.google.com/"}
-		app := setupRouter(t,handler)
+		app := setupRouter(t, handler)
 		// Act
-		resp := shortenUrlRequest(t,app,payload)
+		resp := shortenUrlRequest(t, app, payload)
 		// Assert
 		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("expected status code %d but got %d",http.StatusOK,resp.StatusCode)
+			t.Fatalf("expected status code %d but got %d", http.StatusOK, resp.StatusCode)
 		}
 
-		successResponse := decodeResponse[response.SuccessResponse](t,resp)
+		successResponse := decodeResponse[envelope.SuccessResponse](t, resp)
 		if successResponse.Data.(map[string]any)["message"] != "Successfully shorten url" {
-			t.Errorf("expected message %s but got %s", "Successfully shorten url",successResponse.Data.(map[string]string)["message"])
+			t.Errorf("expected message %s but got %s", "Successfully shorten url", successResponse.Data.(map[string]string)["message"])
+		}
+		if len(successResponse.Data.(map[string]any)["shortUrl"].(string)) != 8 {
+			t.Errorf("expected short url length %d but got %d", 8, len(successResponse.Data.(map[string]any)["shortUrl"].(string)))
 		}
 	})
 }
@@ -169,20 +184,20 @@ func TestGetUrlSuccess(t *testing.T) {
 		// Arrange
 		mockRepository := InitMockRepository()
 		mockCache := InitMockCache()
-		handler := wireupHandler(t,mockRepository, mockCache)
+		handler := wireupHandler(t, mockRepository, mockCache)
 		payload := url.CreateUrlSchema{Url: "https://www.google.com/"}
-		app := setupRouter(t,handler)
-		resp := shortenUrlRequest(t,app,payload)
+		app := setupRouter(t, handler)
+		resp := shortenUrlRequest(t, app, payload)
 		if resp.StatusCode != http.StatusOK {
-			t.Fatalf("expected status code %d but got %d",http.StatusOK,resp.StatusCode)
+			t.Fatalf("expected status code %d but got %d", http.StatusOK, resp.StatusCode)
 		}
 
 		// Act
-		params := decodeResponse[response.SuccessResponse](t,resp).Data.(map[string]any)["shortUrl"].(string)
-		resp = getUrlRequest(t,app,params)
+		params := decodeResponse[envelope.SuccessResponse](t, resp).Data.(map[string]any)["shortUrl"].(string)
+		resp = getUrlRequest(t, app, params)
 		// Assert
 		if resp.StatusCode != http.StatusTemporaryRedirect {
-			t.Fatalf("expected status code %d but got %d",http.StatusTemporaryRedirect,resp.StatusCode)
+			t.Fatalf("expected status code %d but got %d", http.StatusTemporaryRedirect, resp.StatusCode)
 		}
 	})
 }
@@ -193,15 +208,15 @@ func TestGetUrlCache(t *testing.T) {
 		// Arrange
 		mockRepository := InitMockRepository()
 		mockCache := InitMockCache()
-		mockCache.GetFunc = func(ctx context.Context, key string) *redis.StringCmd {return redis.NewStringResult("https://www.google.com",nil)}
-		handler := wireupHandler(t,mockRepository, mockCache)
-	    params := "sdfj32fo"
-		app := setupRouter(t,handler)
+		mockCache.GetFunc = func(ctx context.Context, key string) (string, error) { return "https://www.google.com", nil }
+		handler := wireupHandler(t, mockRepository, mockCache)
+		params := "sdfj32fo"
+		app := setupRouter(t, handler)
 		// Act
-		resp := getUrlRequest(t,app,params)
+		resp := getUrlRequest(t, app, params)
 		// Assert
 		if resp.StatusCode != http.StatusTemporaryRedirect {
-			t.Fatalf("expected status code %d but got %d",http.StatusTemporaryRedirect,resp.StatusCode)
+			t.Fatalf("expected status code %d but got %d", http.StatusTemporaryRedirect, resp.StatusCode)
 		}
 	})
 
@@ -209,15 +224,15 @@ func TestGetUrlCache(t *testing.T) {
 		// Arrange
 		mockRepository := InitMockRepository()
 		mockCache := InitMockCache()
-		mockCache.GetFunc = func(ctx context.Context, key string) *redis.StringCmd {return redis.NewStringResult("",errors.New("error"))}
-		handler := wireupHandler(t,mockRepository, mockCache)
-	    params := "sdfj32fo"
-		app := setupRouter(t,handler)
+		mockCache.GetFunc = func(ctx context.Context, key string) (string, error) { return "", errors.New("error") }
+		handler := wireupHandler(t, mockRepository, mockCache)
+		params := "sdfj32fo"
+		app := setupRouter(t, handler)
 		// Act
-		resp := getUrlRequest(t,app,params)
+		resp := getUrlRequest(t, app, params)
 		// Assert
 		if resp.StatusCode != http.StatusTemporaryRedirect {
-			t.Fatalf("expected status code %d but got %d",http.StatusTemporaryRedirect,resp.StatusCode)
+			t.Fatalf("expected status code %d but got %d", http.StatusTemporaryRedirect, resp.StatusCode)
 		}
 	})
 
@@ -225,15 +240,17 @@ func TestGetUrlCache(t *testing.T) {
 		// Arrange
 		mockRepository := InitMockRepository()
 		mockCache := InitMockCache()
-		mockCache.SetFunc = func(ctx context.Context, key string, value any, expiration time.Duration) *redis.StatusCmd {return redis.NewStatusResult("error",errors.New("error"))}
-		handler := wireupHandler(t,mockRepository, mockCache)
-	    params := "sdfj32fo"
-		app := setupRouter(t,handler)
+		mockCache.SetFunc = func(ctx context.Context, key string, value any, expiration time.Duration) error {
+			return errors.New("error")
+		}
+		handler := wireupHandler(t, mockRepository, mockCache)
+		params := "sdfj32fo"
+		app := setupRouter(t, handler)
 		// Act
-		resp := getUrlRequest(t,app,params)
+		resp := getUrlRequest(t, app, params)
 		// Assert
 		if resp.StatusCode != http.StatusTemporaryRedirect {
-			t.Fatalf("expected status code %d but got %d",http.StatusTemporaryRedirect,resp.StatusCode)
+			t.Fatalf("expected status code %d but got %d", http.StatusTemporaryRedirect, resp.StatusCode)
 		}
 	})
 }
@@ -243,50 +260,54 @@ func TestGetUrlBusinessLogic(t *testing.T) {
 	t.Run("when provide valid but not exist short url,should response with Not Found Error", func(t *testing.T) {
 		// Arrange
 		mockRepository := InitMockRepository()
-		mockRepository.GetLongUrlFunc = func(ctx context.Context, shortUrl string) (string, time.Time, error) {return "",time.Time{},urlerror.ErrUrlNotFound}
+		mockRepository.GetLongUrlFunc = func(ctx context.Context, shortUrl string) (string, time.Time, error) {
+			return "", time.Time{}, urlerror.ErrUrlNotFound
+		}
 		mockCache := InitMockCache()
-		handler := wireupHandler(t,mockRepository, mockCache)
-		app := setupRouter(t,handler)
+		handler := wireupHandler(t, mockRepository, mockCache)
+		app := setupRouter(t, handler)
 		params := "sdfj32fo"
 
 		// Act
-		resp := getUrlRequest(t,app,params)
+		resp := getUrlRequest(t, app, params)
 		// Assert
 		if resp.StatusCode != http.StatusNotFound {
-			t.Fatalf("expected status code %d but got %d",http.StatusNotFound,resp.StatusCode)
+			t.Fatalf("expected status code %d but got %d", http.StatusNotFound, resp.StatusCode)
 		}
 
-		errorResponse := decodeResponse[response.ErrorResponse](t,resp)
-		if errorResponse.Error.Code != "url_not_found" {
-			t.Errorf("expected error code %s but got %s", "url_not_found",errorResponse.Error.Code)
+		errorResponse := decodeResponse[envelope.ErrorResponse](t, resp)
+		if errorResponse.Error.Code != "URL_NOT_FOUND" {
+			t.Errorf("expected error code %s but got %s", "url_not_found", errorResponse.Error.Code)
 		}
 		if !strings.Contains(errorResponse.Error.Message, "url") {
-			t.Errorf("expected error message contains %s but got %s", "url",errorResponse.Error.Message)
+			t.Errorf("expected error message contains %s but got %s", "url", errorResponse.Error.Message)
 		}
 	})
 
 	t.Run("when provide expired url,should response with Not Found Error", func(t *testing.T) {
 		// Arrange
 		mockRepository := InitMockRepository()
-		mockRepository.GetLongUrlFunc = func(ctx context.Context, shortUrl string) (string, time.Time, error) {return "https://www.google.com",time.Now().Add(-24 * time.Hour),nil}
+		mockRepository.GetLongUrlFunc = func(ctx context.Context, shortUrl string) (string, time.Time, error) {
+			return "https://www.google.com", time.Now().Add(-24 * time.Hour), nil
+		}
 		mockCache := InitMockCache()
-		handler := wireupHandler(t,mockRepository, mockCache)
-		app := setupRouter(t,handler)
+		handler := wireupHandler(t, mockRepository, mockCache)
+		app := setupRouter(t, handler)
 		params := "sdfj32fo"
 
 		// Act
-		resp := getUrlRequest(t,app,params)
+		resp := getUrlRequest(t, app, params)
 		// Assert
 		if resp.StatusCode != http.StatusNotFound {
-			t.Fatalf("expected status code %d but got %d",http.StatusNotFound,resp.StatusCode)
+			t.Fatalf("expected status code %d but got %d", http.StatusNotFound, resp.StatusCode)
 		}
 
-		errorResponse := decodeResponse[response.ErrorResponse](t,resp)
-		if errorResponse.Error.Code != "url_not_found" {
-			t.Errorf("expected error code %s but got %s", "url_not_found",errorResponse.Error.Code)
+		errorResponse := decodeResponse[envelope.ErrorResponse](t, resp)
+		if errorResponse.Error.Code != "URL_NOT_FOUND" {
+			t.Errorf("expected error code %s but got %s", "url_not_found", errorResponse.Error.Code)
 		}
 		if !strings.Contains(errorResponse.Error.Message, "url") {
-			t.Errorf("expected error message contains %s but got %s", "url",errorResponse.Error.Message)
+			t.Errorf("expected error message contains %s but got %s", "url", errorResponse.Error.Message)
 		}
 	})
 }
@@ -295,59 +316,59 @@ func TestGetUrlParams(t *testing.T) {
 
 	mockRepository := InitMockRepository()
 	mockCache := InitMockCache()
-	handler := wireupHandler(t,mockRepository, mockCache)
+	handler := wireupHandler(t, mockRepository, mockCache)
 
 	t.Run("when provide less than 8 chars short url in params,should response with Invalid Input Error", func(t *testing.T) {
 		// Arrange
-		app := setupRouter(t,handler)
+		app := setupRouter(t, handler)
 		params := "sdfj3"
 
 		// Act
-		resp := getUrlRequest(t,app,params)
+		resp := getUrlRequest(t, app, params)
 		// Assert
 		if resp.StatusCode != http.StatusBadRequest {
-			t.Fatalf("expected status code %d but got %d",http.StatusBadRequest,resp.StatusCode)
+			t.Fatalf("expected status code %d but got %d", http.StatusBadRequest, resp.StatusCode)
 		}
 
-		errorResponse := decodeResponse[response.ErrorResponse](t,resp)
-		if errorResponse.Error.Code != "invalid_input" {
-			t.Errorf("expected error code %s but got %s", "invalid_input",errorResponse.Error.Code)
+		errorResponse := decodeResponse[envelope.ErrorResponse](t, resp)
+		if errorResponse.Error.Code != "INVALID_INPUT" {
+			t.Errorf("expected error code %s but got %s", "invalid_input", errorResponse.Error.Code)
 		}
 	})
 
 	t.Run("when provide more than 8 chars short url in params,should response with Invalid Input Error", func(t *testing.T) {
 		// Arrange
-		app := setupRouter(t,handler)
+		app := setupRouter(t, handler)
 		params := "sdfj32fof"
 
 		// Act
-		resp := getUrlRequest(t,app,params)
+		resp := getUrlRequest(t, app, params)
 		// Assert
 		if resp.StatusCode != http.StatusBadRequest {
-			t.Fatalf("expected status code %d but got %d",http.StatusBadRequest,resp.StatusCode)
+			t.Fatalf("expected status code %d but got %d", http.StatusBadRequest, resp.StatusCode)
 		}
 
-		errorResponse := decodeResponse[response.ErrorResponse](t,resp)
-		if errorResponse.Error.Code != "invalid_input" {
-			t.Errorf("expected error code %s but got %s", "invalid_input",errorResponse.Error.Code)
+		errorResponse := decodeResponse[envelope.ErrorResponse](t, resp)
+		if errorResponse.Error.Code != "INVALID_INPUT" {
+			t.Errorf("expected error code %s but got %s", "invalid_input", errorResponse.Error.Code)
 		}
 	})
 
 	t.Run("when provide non alphanumeric chars short url in params,should response with Invalid Input Error", func(t *testing.T) {
 		// Arrange
-		app := setupRouter(t,handler)
+		app := setupRouter(t, handler)
 		params := "sdfj32f!"
 
 		// Act
-		resp := getUrlRequest(t,app,params)
+		resp := getUrlRequest(t, app, params)
 		// Assert
 		if resp.StatusCode != http.StatusBadRequest {
-			t.Fatalf("expected status code %d but got %d",http.StatusBadRequest,resp.StatusCode)
+			t.Fatalf("expected status code %d but got %d", http.StatusBadRequest, resp.StatusCode)
 		}
 
-		errorResponse := decodeResponse[response.ErrorResponse](t,resp)
-		if errorResponse.Error.Code != "invalid_input" {
-			t.Errorf("expected error code %s but got %s", "invalid_input",errorResponse.Error.Code)
+		errorResponse := decodeResponse[envelope.ErrorResponse](t, resp)
+		if errorResponse.Error.Code != "INVALID_INPUT" {
+			t.Errorf("expected error code %s but got %s", "invalid_input", errorResponse.Error.Code)
 		}
 	})
 
@@ -386,25 +407,25 @@ func (m *MockRepository) CreateShortenUrl(ctx context.Context, longUrl string, s
 }
 
 type MockCache struct {
-	GetFunc func(ctx context.Context, key string) *redis.StringCmd
-	SetFunc func(ctx context.Context, key string, value any, expiration time.Duration) *redis.StatusCmd
+	GetFunc func(ctx context.Context, key string) (string, error)
+	SetFunc func(ctx context.Context, key string, value any, expiration time.Duration) error
 }
 
 func InitMockCache() *MockCache {
 	return &MockCache{
-		GetFunc: func(ctx context.Context, key string) *redis.StringCmd {
-			return redis.NewStringResult("", redis.Nil)
+		GetFunc: func(ctx context.Context, key string) (string, error) {
+			return "", redis.Nil
 		},
-		SetFunc: func(ctx context.Context, key string, value any, expiration time.Duration) *redis.StatusCmd {
-			return redis.NewStatusResult("OK", nil)
+		SetFunc: func(ctx context.Context, key string, value any, expiration time.Duration) error {
+			return nil
 		},
 	}
 }
 
-func (m *MockCache) Get(ctx context.Context, key string) *redis.StringCmd {
+func (m *MockCache) Get(ctx context.Context, key string) (string, error) {
 	return m.GetFunc(ctx, key)
 }
 
-func (m *MockCache) Set(ctx context.Context, key string, value any, expiration time.Duration) *redis.StatusCmd {
+func (m *MockCache) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
 	return m.SetFunc(ctx, key, value, expiration)
 }

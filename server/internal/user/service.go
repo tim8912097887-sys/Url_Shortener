@@ -27,17 +27,23 @@ type TokenManager interface {
 	ParseRefreshToken(tokenString string) (*jwttoken.RefreshTokenClaims, error)
 }
 
+type ServiceConfig struct {
+	Repository UserRepository
+	Tokens     jwttoken.TokenManager
+	Logger     *slog.Logger
+}
+
 type service struct {
 	repository UserRepository
 	tokens     jwttoken.TokenManager
 	logger     *slog.Logger
 }
 
-func NewService(repository UserRepository, tokens jwttoken.TokenManager, logger *slog.Logger) *service {
+func NewService(serviceConfig *ServiceConfig) *service {
 	return &service{
-		repository: repository,
-		tokens:     tokens,
-		logger:     logger,
+		repository: serviceConfig.Repository,
+		tokens:     serviceConfig.Tokens,
+		logger:     serviceConfig.Logger,
 	}
 }
 

@@ -16,6 +16,7 @@ type CreateOAuthAccountRepositoryResponse struct {
 	UserID            string
 	Provider          Provider
 	ProviderAccountID string
+	TokenVersion      int
 }
 
 type GetUserByOAuthAccountRepositoryResponse struct {

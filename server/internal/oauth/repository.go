@@ -61,6 +61,9 @@ func (r *repository) GetUserByOAuthAccount(
 	return &user, nil
 }
 
+// Const for PostgreSQL unique constraint violation error code
+const pgUniqueViolation = "23505"
+
 func (r *repository) CreateOAuthAccount(
 	ctx context.Context,
 	userInsert userschema.UserInsert,
@@ -75,6 +78,9 @@ func (r *repository) CreateOAuthAccount(
 		_ = tx.Rollback(ctx)
 	}()
 
+	var targetUserID string
+	var targetTokenVersion int
+
 	userSQL := `
 		INSERT INTO users (
 			id,
@@ -83,12 +89,11 @@ func (r *repository) CreateOAuthAccount(
 			password_hash
 		)
 		VALUES ($1, $2, $3, $4)
+		ON CONFLICT (email) DO NOTHING
 		RETURNING
 			id,
 			token_version;
 	`
-
-	var createdUser oauthschema.GetUserByOAuthAccountRepositoryResponse
 
 	err = tx.QueryRow(
 		ctx,
@@ -97,12 +102,22 @@ func (r *repository) CreateOAuthAccount(
 		userInsert.Username,
 		userInsert.Email,
 		nil,
-	).Scan(
-		&createdUser.UserID,
-		&createdUser.TokenVersion,
-	)
+	).Scan(&targetUserID, &targetTokenVersion)
+
 	if err != nil {
-		return nil, fmt.Errorf("create user: %w", err)
+	    if errors.Is(err, pgx.ErrNoRows) {
+			getUserSQL := `
+				SELECT id, token_version 
+				FROM users 
+				WHERE email = $1;
+			`
+			err = tx.QueryRow(ctx, getUserSQL, userInsert.Email).Scan(&targetUserID, &targetTokenVersion)
+			if err != nil {
+				return nil, fmt.Errorf("get existing user by email: %w", err)
+			}
+		} else {
+            return nil, fmt.Errorf("create user: %w", err)
+		}
 	}
 
 	var result oauthschema.CreateOAuthAccountRepositoryResponse
@@ -126,7 +141,7 @@ func (r *repository) CreateOAuthAccount(
 		ctx,
 		oauthSQL,
 		oauthInsert.ID,
-		createdUser.UserID,
+		targetUserID,
 		oauthInsert.Provider,
 		oauthInsert.ProviderAccountID,
 		oauthInsert.ProviderEmail,
@@ -145,5 +160,9 @@ func (r *repository) CreateOAuthAccount(
 		return nil, fmt.Errorf("commit transaction: %w", err)
 	}
 
+	// Attach TokenVersion to repository response if required for token generation downstream
+	result.TokenVersion = targetTokenVersion
+
 	return &result, nil
 }
+

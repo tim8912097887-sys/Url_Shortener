@@ -6,7 +6,7 @@ import (
 
 	"github.com/gofiber/fiber/v3"
 	usererror "github.com/tim8912097887-sys/url-shortener/internal/shared/error/user_error"
-	"github.com/tim8912097887-sys/url-shortener/internal/shared/response"
+	"github.com/tim8912097887-sys/url-shortener/internal/shared/response/envelope"
 	jwttoken "github.com/tim8912097887-sys/url-shortener/internal/shared/util/jwt_token"
 )
 
@@ -28,15 +28,14 @@ func AuthMiddleware(tokens jwttoken.TokenManager, logger *slog.Logger) fiber.Han
 
 		if header == "" || !strings.HasPrefix(header, bearerPrefix) {
 			logger.Error("missing or malformed authorization header", slog.String("context", "auth middleware"))
-			return c.Status(fiber.StatusUnauthorized).JSON(response.NewErrorResponse("invalid_token", usererror.ErrInvalidToken.Error()))
+			return c.Status(fiber.StatusUnauthorized).JSON(envelope.NewErrorResponse(envelope.Error{Code: "INVALID_TOKEN", Message: usererror.ErrInvalidToken.Error()}))
 		}
-
 		tokenString := strings.TrimPrefix(header, bearerPrefix)
 
 		claims, err := tokens.ParseAccessToken(tokenString)
 		if err != nil {
 			logger.Error("failed to parse access token", slog.Any("error", err), slog.String("context", "auth middleware"))
-			return c.Status(fiber.StatusUnauthorized).JSON(response.NewErrorResponse("invalid_token", usererror.ErrInvalidToken.Error()))
+			return c.Status(fiber.StatusUnauthorized).JSON(envelope.NewErrorResponse(envelope.Error{Code: "INVALID_TOKEN", Message: usererror.ErrInvalidToken.Error()}))
 		}
 
 		c.Locals(LocalsUserID, claims.UserID)

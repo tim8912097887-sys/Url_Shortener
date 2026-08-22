@@ -63,12 +63,12 @@ func main() {
 	// Close the connection pool
 	defer cache.Close()
 
-	app := api.Api{
-		Addr: cfg.Addr,
-		ClientOrigin: cfg.ClientOrigin,
-	}
+	app := api.NewApi(api.ApiConfig{
+		Cfg: cfg,
+		Logger: logger,
+	})
 
-	if err := app.Run(ctx, slog.Default(), app.Mount(logger,pool,cache), 8*time.Second); err != nil {
+	if err := app.Run(ctx, app.Mount(pool,cache), 8*time.Second); err != nil {
 		logger.Error("failed to start server", slog.Any("error", err))
 		os.Exit(1)
 	}

@@ -148,7 +148,7 @@ func (s *Service) Authenticate(
 
 			existUser = &oauthschema.GetUserByOAuthAccountRepositoryResponse{
 				UserID: createdUser.UserID,
-				TokenVersion: 0,
+				TokenVersion: createdUser.TokenVersion,
 			}
 		} else {
 			return nil, err

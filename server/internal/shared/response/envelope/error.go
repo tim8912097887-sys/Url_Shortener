@@ -1,4 +1,4 @@
-package response
+package envelope
 
 import "time"
 
@@ -14,6 +14,6 @@ type ErrorResponse struct {
 	MetaData MetaData `json:"metaData"`
 }
 
-func NewErrorResponse(code string, message string) ErrorResponse {
-	return ErrorResponse{State: "error", Data: nil, Error: Error{Code: code, Message: message}, MetaData: MetaData{Timestamp: time.Now()}}
+func NewErrorResponse(errorBody Error) ErrorResponse {
+	return ErrorResponse{State: "error", Data: nil, Error: errorBody, MetaData: MetaData{Timestamp: time.Now()}}
 }
