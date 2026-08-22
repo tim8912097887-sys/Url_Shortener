@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/tim8912097887-sys/url-shortener/internal/oauth"
 	"github.com/tim8912097887-sys/url-shortener/internal/shared/middleware"
 	"github.com/tim8912097887-sys/url-shortener/internal/shared/ratelimiter"
 	jwttoken "github.com/tim8912097887-sys/url-shortener/internal/shared/util/jwt_token"
@@ -36,13 +37,14 @@ func (a *Api) Mount(logger *slog.Logger,pool *pgxpool.Pool,cache *redis.Client) 
 	}))
 
 	// Utils
-	tokenManager := jwttoken.NewTokenManager("access_secret", "refresh_secret")
+	tokenManager := jwttoken.NewTokenManager("", "")
 
 	// Api Versioning
 	api := app.Group("/api")      
     v1 := api.Group("/v1") 
 	urlGroup := v1.Group("/urls")
     userGroup := v1.Group("/users")
+	authGroup := v1.Group("/auth")
 
 	// Rate Limiting
     rateLimiter := ratelimiter.NewRateLimiter(20, 10)
@@ -61,6 +63,24 @@ func (a *Api) Mount(logger *slog.Logger,pool *pgxpool.Pool,cache *redis.Client) 
 	userService := user.NewService(userRepository,*tokenManager,logger)
 	userHandler := user.NewHandler(logger,userService,*tokenManager)
 	userHandler.RegisterRoutes(userGroup)
+
+	// Register oauth handler
+	oauthCofig := oauth.New(oauth.Config{
+		GoogleClientID: "",
+		GoogleClientSecret: "",
+		BaseURL: "http://localhost:8080",
+	})
+    oauthRepository := oauth.NewRepository(pool)
+	oauthCache := oauth.NewCache(cache)
+	oauthService := oauth.NewService(&oauth.ServiceConfig{
+		Cache: oauthCache, 
+		OAuthConfig: oauthCofig, 
+		TokenManager: tokenManager, 
+		Repository: oauthRepository,
+	})
+	oauthHandler := oauth.NewHandler(logger,oauthService)
+	oauthHandler.RegisterRoutes(authGroup)
+
 	return adaptor.FiberApp(app)
 }
 
