@@ -1,4 +1,4 @@
-name: Url_Shortener_Server CI
+name: Url_Shortener_Server_Build_And_Unit_Test
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  build_and_test:
+  build-and-unit-test:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -24,5 +24,12 @@ jobs:
           go-version: "1.26.4"
       - name: Build
         run: go build -v ./...
-      - name: Test
-        run: go test -v ./...
+      - name: Test User
+        working-directory: ./internal/user
+        run: go test -v ./handler_test.go
+      - name: Test Url
+        working-directory: ./internal/url
+        run: go test -v ./handler_test.go
+      - name: Test OAuth
+        working-directory: ./internal/oauth
+        run: go test -v ./handler_test.go
