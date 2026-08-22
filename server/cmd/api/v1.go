@@ -13,6 +13,7 @@ import (
 	"github.com/gofiber/fiber/v3/middleware/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
+	"github.com/tim8912097887-sys/url-shortener/internal/configs"
 	"github.com/tim8912097887-sys/url-shortener/internal/oauth"
 	"github.com/tim8912097887-sys/url-shortener/internal/shared/middleware"
 	"github.com/tim8912097887-sys/url-shortener/internal/shared/ratelimiter"
@@ -21,23 +22,33 @@ import (
 	"github.com/tim8912097887-sys/url-shortener/internal/user"
 )
 
-type Api struct{
-	Addr string
-	ClientOrigin string
+type ApiConfig struct {
+    Logger *slog.Logger
+    Cfg *configs.Configs
 }
 
-func (a *Api) Mount(logger *slog.Logger,pool *pgxpool.Pool,cache *redis.Client) http.Handler {
+type Api struct{
+	apiConfig ApiConfig
+}
+
+func NewApi(apiConfig ApiConfig) *Api {
+	return &Api{
+		apiConfig: apiConfig,
+	}
+}
+
+func (a *Api) Mount(pool *pgxpool.Pool,cache *redis.Client) http.Handler {
 	app := fiber.New()
 
 	// Configure cors
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: []string{a.ClientOrigin},
+		AllowOrigins: []string{a.apiConfig.Cfg.ClientOrigin},
 		AllowMethods: []string{"POST","GET"},
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
 	}))
 
 	// Utils
-	tokenManager := jwttoken.NewTokenManager("", "")
+	tokenManager := jwttoken.NewTokenManager(a.apiConfig.Cfg.AccessTokenSecret, a.apiConfig.Cfg.RefreshTokenSecret)
 
 	// Api Versioning
 	api := app.Group("/api")      
@@ -50,9 +61,13 @@ func (a *Api) Mount(logger *slog.Logger,pool *pgxpool.Pool,cache *redis.Client) 
     rateLimiter := ratelimiter.NewRateLimiter(20, 10)
 	urlGroup.Use(middleware.RateLimitMiddleware(rateLimiter))
 	// Register Url handler
+	urlCache := url.NewCache(cache)
 	urlRepository := url.NewRepository(pool)
-	urlService := url.NewService(urlRepository,cache,logger)
-	urlHandler := url.NewHandler(logger,urlService)
+	urlService := url.NewService(&url.ServiceConfig{Repository: urlRepository, Cache: urlCache, Logger: a.apiConfig.Logger})
+	urlHandler := url.NewHandler(url.HandlerConfig{
+		Logger:  a.apiConfig.Logger,
+		Service: urlService,
+	})
 	urlHandler.RegisterRoutes(urlGroup)
 	app.Get("/health", func(c fiber.Ctx) error {
 		return c.SendString("OK")
@@ -60,15 +75,15 @@ func (a *Api) Mount(logger *slog.Logger,pool *pgxpool.Pool,cache *redis.Client) 
 
 	// Register user handler
     userRepository := user.NewRepository(pool)
-	userService := user.NewService(userRepository,*tokenManager,logger)
-	userHandler := user.NewHandler(logger,userService,*tokenManager)
+	userService := user.NewService(&user.ServiceConfig{Repository: userRepository, Tokens: *tokenManager, Logger: a.apiConfig.Logger})
+	userHandler := user.NewHandler(user.HandlerConfig{Logger: a.apiConfig.Logger, Service: userService, Tokens: *tokenManager, Cfg: a.apiConfig.Cfg})
 	userHandler.RegisterRoutes(userGroup)
 
 	// Register oauth handler
 	oauthCofig := oauth.New(oauth.Config{
-		GoogleClientID: "",
-		GoogleClientSecret: "",
-		BaseURL: "http://localhost:8080",
+		GoogleClientID: a.apiConfig.Cfg.GoogleClientID,
+		GoogleClientSecret: a.apiConfig.Cfg.GoogleClientSecret,
+		BaseURL: a.apiConfig.Cfg.BaseURL,
 	})
     oauthRepository := oauth.NewRepository(pool)
 	oauthCache := oauth.NewCache(cache)
@@ -78,15 +93,15 @@ func (a *Api) Mount(logger *slog.Logger,pool *pgxpool.Pool,cache *redis.Client) 
 		TokenManager: tokenManager, 
 		Repository: oauthRepository,
 	})
-	oauthHandler := oauth.NewHandler(logger,oauthService)
+	oauthHandler := oauth.NewHandler(oauth.HandlerConfig{Logger: a.apiConfig.Logger, Service: oauthService, Cfg: a.apiConfig.Cfg})
 	oauthHandler.RegisterRoutes(authGroup)
 
 	return adaptor.FiberApp(app)
 }
 
-func (a *Api) Run(ctx context.Context, logger *slog.Logger, h http.Handler, shutdownTimeout time.Duration) error {
+func (a *Api) Run(ctx context.Context, h http.Handler, shutdownTimeout time.Duration) error {
 	server := &http.Server{
-		Addr:    a.Addr,
+		Addr:    a.apiConfig.Cfg.Addr,
 		Handler: h,
 		ReadTimeout:       5 * time.Second,
         ReadHeaderTimeout: 2 * time.Second,
@@ -98,16 +113,16 @@ func (a *Api) Run(ctx context.Context, logger *slog.Logger, h http.Handler, shut
 	serverErrorCh := make(chan error, 1)
 	// Start the server with goroutine
 	go func() {
-		logger.Info("starting server",slog.String("address", a.Addr))
+		a.apiConfig.Logger.Info("starting server",slog.String("address", a.apiConfig.Cfg.Addr))
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Error("failed to start server",slog.Any("error", err))
+			a.apiConfig.Logger.Error("failed to start server",slog.Any("error", err))
 			serverErrorCh <- err
 		}
 	}()
 
 	select {
 		case <-ctx.Done():
-			logger.Info("shutting down the server",slog.String("reason", ctx.Err().Error()))
+			a.apiConfig.Logger.Info("shutting down the server",slog.String("reason", ctx.Err().Error()))
 		case err := <-serverErrorCh:
 			return err
 	}
@@ -116,15 +131,15 @@ func (a *Api) Run(ctx context.Context, logger *slog.Logger, h http.Handler, shut
 	defer cancel()
 
 	if err := server.Shutdown(ctx); err != nil {
-		logger.Error("failed to shut down the server",slog.Any("error", err))
+		a.apiConfig.Logger.Error("failed to shut down the server",slog.Any("error", err))
 		if closeErr := server.Close(); closeErr != nil {
-			logger.Error("failed to close the server",slog.Any("error", err))
+			a.apiConfig.Logger.Error("failed to close the server",slog.Any("error", err))
 			return errors.Join(err,closeErr)
 		}
 		return err
 	}
 
-	logger.Info("server shut down gracefully")
+	a.apiConfig.Logger.Info("server shut down gracefully")
 	return nil
 
 }

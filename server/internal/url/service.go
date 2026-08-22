@@ -19,22 +19,28 @@ type UrlRepository interface {
 	CreateShortenUrl(ctx context.Context, longUrl string, shortUrl string) (string, error)
 }
 
-type UrlRedis interface {
-	Set(ctx context.Context, key string, value any, expiration time.Duration) *redis.StatusCmd
-	Get(ctx context.Context, key string) *redis.StringCmd
+type UrlCache interface {
+	Set(ctx context.Context, key string, value any, expiration time.Duration) error
+	Get(ctx context.Context, key string) (string, error)
+}
+
+type ServiceConfig struct {
+	Repository UrlRepository
+	Cache      UrlCache
+	Logger     *slog.Logger
 }
 
 type service struct {
 	repository UrlRepository
-	cache      UrlRedis
+	cache      UrlCache
 	logger     *slog.Logger
 }
 
-func NewService(repository UrlRepository,cache UrlRedis, logger *slog.Logger) *service {
+func NewService(serviceConfig *ServiceConfig) *service {
 	return &service{
-		repository: repository,
-		cache:      cache,
-		logger:     logger,
+		repository: serviceConfig.Repository,
+		cache:      serviceConfig.Cache,
+		logger:     serviceConfig.Logger,
 	}
 }
 
@@ -66,7 +72,7 @@ func (s *service) ShortenUrl(ctx context.Context, url string) (string, error) {
 	}
 
 	// Write through cache
-	if err = s.cache.Set(ctx, urlCacheKey(shortUrl), url, CacheTTL).Err(); err != nil {
+	if err = s.cache.Set(ctx, urlCacheKey(shortUrl), url, CacheTTL); err != nil {
 	   s.logger.Error("failed to set cache",slog.Any("error", err))
 	}
 
@@ -79,7 +85,7 @@ func (s *service) GetUrl(ctx context.Context, shortUrl string) (string, error) {
 	var remainingTime time.Time
 
 	// Read from cache
-	if longUrl, err = s.cache.Get(ctx,urlCacheKey(shortUrl)).Result(); (err != nil && err != redis.Nil) {
+	if longUrl, err = s.cache.Get(ctx,urlCacheKey(shortUrl)); (err != nil && err != redis.Nil) {
 		s.logger.Error("failed to get cache",slog.Any("error", err))
 	}
 
@@ -105,7 +111,7 @@ func (s *service) GetUrl(ctx context.Context, shortUrl string) (string, error) {
 	cacheTTL := min(CacheTTL, timeUntilExpiry)
 
 	// Cache aside
-	if err = s.cache.Set(ctx, urlCacheKey(shortUrl), longUrl, cacheTTL).Err(); err != nil {
+	if err = s.cache.Set(ctx, urlCacheKey(shortUrl), longUrl, cacheTTL); err != nil {
 		s.logger.Error("failed to set cache",slog.Any("error", err))
 	}
 

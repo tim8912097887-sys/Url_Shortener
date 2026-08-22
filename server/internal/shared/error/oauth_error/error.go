@@ -5,5 +5,4 @@ import "errors"
 var (
 	ErrInvalidState = errors.New("invalid state")
 	ErrInvalidProvider = errors.New("invalid provider")
-	ErrInvalidOAuthCallback = errors.New("invalid oauth callback")
 )

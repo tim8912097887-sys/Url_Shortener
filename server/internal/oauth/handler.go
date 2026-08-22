@@ -7,7 +7,9 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v3"
-	"github.com/tim8912097887-sys/url-shortener/internal/shared/response"
+	"github.com/tim8912097887-sys/url-shortener/internal/configs"
+	"github.com/tim8912097887-sys/url-shortener/internal/shared/response/envelope"
+	writeresponse "github.com/tim8912097887-sys/url-shortener/internal/shared/response/write_response"
 	oauthschema "github.com/tim8912097887-sys/url-shortener/internal/shared/schema/oauth_schema"
 	jwttoken "github.com/tim8912097887-sys/url-shortener/internal/shared/util/jwt_token"
 )
@@ -26,15 +28,23 @@ type OAuthService interface {
 	) (*oauthschema.TokenResponse, error)
 }
 
+type HandlerConfig struct {
+	Logger  *slog.Logger
+	Service OAuthService
+	Cfg     *configs.Configs
+}
+
 type Handler struct {
 	logger  *slog.Logger
 	service OAuthService
+	cfg     *configs.Configs
 }
 
-func NewHandler(logger *slog.Logger, service OAuthService) Handler {
+func NewHandler(handlerConfig HandlerConfig) Handler {
 	return Handler{
-		logger:  logger,
-		service: service,
+		logger:  handlerConfig.Logger,
+		service: handlerConfig.Service,
+		cfg:     handlerConfig.Cfg,
 	}
 }
 
@@ -49,7 +59,7 @@ func (h *Handler) GoogleLogin(c fiber.Ctx) {
 		ProviderGoogle,
 	)
 	if err != nil {
-		c.Status(fiber.StatusInternalServerError).JSON(response.NewErrorResponse("internal_error", "failed to get authorization url"))
+		writeresponse.ErrorHandler(c, err, h.logger,"failed to get authorization url")
 		return
 	}
 
@@ -62,7 +72,7 @@ func (h *Handler) GoogleCallback(c fiber.Ctx) {
 	
 
 	if code == "" || state == "" {
-		c.Status(fiber.StatusBadRequest).JSON(response.NewErrorResponse("invalid_input", "code or state is empty"))
+		writeresponse.ErrorJson(c, fiber.StatusBadRequest, envelope.Error{Code: "INVALID_INPUT", Message: "invalid input"})
 		return
 	}
 
@@ -73,29 +83,30 @@ func (h *Handler) GoogleCallback(c fiber.Ctx) {
 		code,
 	)
 	if err != nil {
-		c.Status(fiber.StatusUnauthorized).JSON(response.NewErrorResponse("oauth_failed", "failed to login with google"))
+		writeresponse.ErrorHandler(c, err, h.logger,"failed to authenticate user")
 		return
 	}
 
 
     h.setRefreshCookie(c, tokenResponse.RefreshToken)
 
-	c.Status(fiber.StatusOK).JSON(response.NewSuccessResponse(map[string]string{
+	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]string{
 		"accessToken": tokenResponse.AccessToken,
 		"message":     "Successfully logged in",
-	}))
+	})
 }
 
 func (h *Handler) setRefreshCookie(c fiber.Ctx, refreshToken string) {
 	c.Cookie(&fiber.Cookie{
 		Name:     "refresh_token",
 		Value:    refreshToken,
-		Path:     "/",
+		Path:     "/api/v1/users",
+		Domain: h.cfg.CookieDomain,
 		Expires:  time.Now().Add(jwttoken.RefreshTokenTTL),
 		MaxAge:   int(jwttoken.RefreshTokenTTL.Seconds()),
 		HTTPOnly: true,
-		Secure:   true,
-		SameSite: fiber.CookieSameSiteStrictMode,
+		Secure:   h.cfg.CookieSecure,
+		SameSite: h.cfg.CookieSameSite,
 	})
 }
 

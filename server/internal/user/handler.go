@@ -2,14 +2,15 @@ package user
 
 import (
 	"context"
-	"errors"
 	"log/slog"
 	"time"
 
 	"github.com/gofiber/fiber/v3"
+	"github.com/tim8912097887-sys/url-shortener/internal/configs"
 	usererror "github.com/tim8912097887-sys/url-shortener/internal/shared/error/user_error"
 	"github.com/tim8912097887-sys/url-shortener/internal/shared/middleware"
-	"github.com/tim8912097887-sys/url-shortener/internal/shared/response"
+	"github.com/tim8912097887-sys/url-shortener/internal/shared/response/envelope"
+	writeresponse "github.com/tim8912097887-sys/url-shortener/internal/shared/response/write_response"
 	userschema "github.com/tim8912097887-sys/url-shortener/internal/shared/schema/user_schema"
 	jwttoken "github.com/tim8912097887-sys/url-shortener/internal/shared/util/jwt_token"
 	"github.com/tim8912097887-sys/url-shortener/internal/shared/validation"
@@ -30,17 +31,26 @@ type UserService interface {
 	Refresh(ctx context.Context, refreshToken string) (newAccessToken, newRefreshToken string, err error)
 }
 
+type HandlerConfig struct {
+	Logger  *slog.Logger
+	Service UserService
+	Tokens  jwttoken.TokenManager
+    Cfg     *configs.Configs
+}
+
 type Handler struct {
 	logger  *slog.Logger
 	service UserService
 	tokens  jwttoken.TokenManager // needed to wire AuthMiddleware in RegisterRoutes
+    cfg     *configs.Configs
 }
 
-func NewHandler(logger *slog.Logger, service UserService, tokens jwttoken.TokenManager) Handler {
+func NewHandler(handlerConfig HandlerConfig) Handler {
 	return Handler{
-		logger:  logger,
-		service: service,
-		tokens:  tokens,
+		logger:  handlerConfig.Logger,
+		service: handlerConfig.Service,
+		tokens:  handlerConfig.Tokens,
+		cfg:     handlerConfig.Cfg,
 	}
 }
 
@@ -58,8 +68,10 @@ func (h *Handler) Signup(c fiber.Ctx) {
 	validatedInput, err := validation.BindAndValidate[userschema.SignupRequest](c)
 
 	if err != nil {
-		h.logger.Error("failed to validate input", slog.Any("error", err), slog.String("context", "signup"))
-		c.Status(fiber.StatusBadRequest).JSON(response.NewErrorResponse("invalid_input", err.Error()))
+		c.Status(fiber.StatusBadRequest).JSON(envelope.NewErrorResponse(envelope.Error{
+			Code:    "INVALID_INPUT",
+			Message: err.Error(),
+		}))
 		return
 	}
 
@@ -68,16 +80,15 @@ func (h *Handler) Signup(c fiber.Ctx) {
 		Username: validatedInput.Username,
 		Password: validatedInput.Password,
 	}); err != nil {
-		h.logger.Error("failed to sign up", slog.Any("error", err), slog.String("context", "signup"))
-		c.Status(fiber.StatusInternalServerError).JSON(response.NewErrorResponse("internal_error", err.Error()))
+		writeresponse.ErrorHandler(c, err, h.logger, "failed to signup")
 		return
 	}
 
 	// Same success response whether or not the email was already registered —
 	// signup can never be used to enumerate existing accounts.
-	c.Status(fiber.StatusOK).JSON(response.NewSuccessResponse(map[string]string{
+	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]string{
 		"message": "Successfully signed up",
-	}))
+	})
 }
 
 func (h *Handler) Login(c fiber.Ctx) {
@@ -85,62 +96,49 @@ func (h *Handler) Login(c fiber.Ctx) {
 	validatedInput, err := validation.BindAndValidate[userschema.LoginRequest](c)
 
 	if err != nil {
-		h.logger.Error("failed to validate input", slog.Any("error", err), slog.String("context", "login"))
-		c.Status(fiber.StatusBadRequest).JSON(response.NewErrorResponse("invalid_input", err.Error()))
+		c.Status(fiber.StatusBadRequest).JSON(envelope.NewErrorResponse(envelope.Error{
+			Code:    "INVALID_INPUT",
+			Message: err.Error(),
+		}))
 		return
 	}
 
 	accessToken, refreshToken, err := h.service.Login(c.RequestCtx(), validatedInput.Email, validatedInput.Password)
 
-	if errors.Is(err, usererror.ErrInvalidCredential) {
-		h.logger.Error("failed to login", slog.Any("error", err), slog.String("context", "login"))
-		c.Status(fiber.StatusBadRequest).JSON(response.NewErrorResponse("invalid_credential", err.Error()))
-		return
-	}
-
 	if err != nil {
-		h.logger.Error("failed to login", slog.Any("error", err), slog.String("context", "login"))
-		c.Status(fiber.StatusInternalServerError).JSON(response.NewErrorResponse("internal_error", err.Error()))
+		writeresponse.ErrorHandler(c, err, h.logger, "failed to login")
 		return
 	}
 
 	h.setRefreshCookie(c, refreshToken)
 
-	c.Status(fiber.StatusOK).JSON(response.NewSuccessResponse(map[string]string{
+	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]string{
 		"accessToken": accessToken,
 		"message":     "Successfully logged in",
-	}))
+	})
 }
 
 func (h *Handler) Refresh(c fiber.Ctx) {
 	refreshToken := c.Cookies(refreshCookieName)
 
 	if refreshToken == "" {
-		h.logger.Error("missing refresh token cookie", slog.String("context", "refresh"))
-		c.Status(fiber.StatusUnauthorized).JSON(response.NewErrorResponse("invalid_token", usererror.ErrInvalidToken.Error()))
+		writeresponse.ErrorHandler(c, usererror.ErrInvalidToken, h.logger, "failed to refresh user")
 		return
 	}
 
 	newAccessToken, newRefreshToken, err := h.service.Refresh(c.RequestCtx(), refreshToken)
 
-	if errors.Is(err, usererror.ErrInvalidToken) {
-		h.logger.Error("failed to refresh token", slog.Any("error", err), slog.String("context", "refresh"))
-		c.Status(fiber.StatusUnauthorized).JSON(response.NewErrorResponse("invalid_token", err.Error()))
-		return
-	}
-
 	if err != nil {
-		h.logger.Error("failed to refresh token", slog.Any("error", err), slog.String("context", "refresh"))
-		c.Status(fiber.StatusInternalServerError).JSON(response.NewErrorResponse("internal_error", err.Error()))
+		writeresponse.ErrorHandler(c, err, h.logger, "failed to refresh user")
 		return
 	}
 
 	h.setRefreshCookie(c, newRefreshToken)
 
-	c.Status(fiber.StatusOK).JSON(response.NewSuccessResponse(map[string]string{
+	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]string{
 		"accessToken": newAccessToken,
 		"message":     "Successfully refreshed token",
-	}))
+	})
 }
 
 // Logout requires AuthMiddleware to have already validated the bearer access
@@ -148,60 +146,44 @@ func (h *Handler) Refresh(c fiber.Ctx) {
 func (h *Handler) Logout(c fiber.Ctx) {
 	userID, tokenVersion, ok := h.authFromLocals(c)
 	if !ok {
-		h.logger.Error("missing auth locals", slog.String("context", "logout"))
-		c.Status(fiber.StatusUnauthorized).JSON(response.NewErrorResponse("invalid_token", usererror.ErrInvalidToken.Error()))
+		writeresponse.ErrorHandler(c, usererror.ErrInvalidToken, h.logger, "failed to logout user")
 		return
 	}
 
 	err := h.service.Logout(c.RequestCtx(), userID, tokenVersion)
 
-	if errors.Is(err, usererror.ErrInvalidToken) {
-		h.logger.Error("failed to logout", slog.Any("error", err), slog.String("context", "logout"))
-		c.Status(fiber.StatusUnauthorized).JSON(response.NewErrorResponse("invalid_token", err.Error()))
-		return
-	}
-
 	if err != nil {
-		h.logger.Error("failed to logout", slog.Any("error", err), slog.String("context", "logout"))
-		c.Status(fiber.StatusInternalServerError).JSON(response.NewErrorResponse("internal_error", err.Error()))
+		writeresponse.ErrorHandler(c, err, h.logger, "failed to logout user")
 		return
 	}
 
 	h.clearRefreshCookie(c)
 
-	c.Status(fiber.StatusOK).JSON(response.NewSuccessResponse(map[string]string{
+	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]string{
 		"message": "Successfully logged out",
-	}))
+	})
 }
 
 // LogoutAll requires AuthMiddleware, same as Logout.
 func (h *Handler) LogoutAll(c fiber.Ctx) {
 	userID, tokenVersion, ok := h.authFromLocals(c)
 	if !ok {
-		h.logger.Error("missing auth locals", slog.String("context", "logout all"))
-		c.Status(fiber.StatusUnauthorized).JSON(response.NewErrorResponse("invalid_token", usererror.ErrInvalidToken.Error()))
+		writeresponse.ErrorHandler(c, usererror.ErrInvalidToken, h.logger, "failed to logout all user")
 		return
 	}
 
 	err := h.service.LogoutAll(c.RequestCtx(), userID, tokenVersion)
 
-	if errors.Is(err, usererror.ErrInvalidToken) {
-		h.logger.Error("failed to logout all", slog.Any("error", err), slog.String("context", "logout all"))
-		c.Status(fiber.StatusUnauthorized).JSON(response.NewErrorResponse("invalid_token", err.Error()))
-		return
-	}
-
 	if err != nil {
-		h.logger.Error("failed to logout all", slog.Any("error", err), slog.String("context", "logout all"))
-		c.Status(fiber.StatusInternalServerError).JSON(response.NewErrorResponse("internal_error", err.Error()))
+		writeresponse.ErrorHandler(c, err, h.logger, "failed to logout all user")
 		return
 	}
 
 	h.clearRefreshCookie(c)
 
-	c.Status(fiber.StatusOK).JSON(response.NewSuccessResponse(map[string]string{
-		"message": "Successfully logged out of all sessions",
-	}))
+	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]string{
+		"message": "Successfully logged out all",
+	})
 }
 
 func (h *Handler) authFromLocals(c fiber.Ctx) (userID string, tokenVersion int, ok bool) {
@@ -223,11 +205,12 @@ func (h *Handler) setRefreshCookie(c fiber.Ctx, refreshToken string) {
 		Name:     refreshCookieName,
 		Value:    refreshToken,
 		Path:     refreshCookiePath,
+		Domain:   h.cfg.CookieDomain,
 		Expires:  time.Now().Add(jwttoken.RefreshTokenTTL),
 		MaxAge:   int(jwttoken.RefreshTokenTTL.Seconds()),
 		HTTPOnly: true,
-		Secure:   true,
-		SameSite: fiber.CookieSameSiteStrictMode,
+		Secure:   h.cfg.CookieSecure,
+		SameSite: h.cfg.CookieSameSite,
 	})
 }
 
