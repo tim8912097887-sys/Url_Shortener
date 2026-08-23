@@ -15,8 +15,8 @@ const (
 	UnauthURLExpiry = 7 * 24 * time.Hour
 	AuthURLExpiry   = 30 * 24 * time.Hour
 
-	UnauthCacheTTL = 2 * time.Minute
-	AuthCacheTTL   = 2 * time.Hour
+	UnauthCacheTTL = 15 * time.Minute
+	AuthCacheTTL   = 24 * time.Hour
 )
 
 type UrlRepository interface {
