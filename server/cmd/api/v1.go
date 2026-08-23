@@ -67,6 +67,7 @@ func (a *Api) Mount(pool *pgxpool.Pool,cache *redis.Client) http.Handler {
 	urlHandler := url.NewHandler(url.HandlerConfig{
 		Logger:  a.apiConfig.Logger,
 		Service: urlService,
+		Tokens:  *tokenManager,
 	})
 	urlHandler.RegisterRoutes(urlGroup)
 	app.Get("/health", func(c fiber.Ctx) error {
