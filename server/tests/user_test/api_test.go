@@ -53,6 +53,7 @@ func login(t *testing.T, app *helper.App, email, password string) (string, strin
 }
 
 func TestSignupEndpoint(t *testing.T) {
+	app := helper.NewApp(t)
 	cases := []struct {
 		name     string
 		payload  any
@@ -69,7 +70,7 @@ func TestSignupEndpoint(t *testing.T) {
 
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			app := helper.NewApp(t)
+			
 			if test.name == "duplicate email is idempotent" {
 				if response := signup(t, app, "alice", "a@example.com", "password1"); response.StatusCode != http.StatusOK {
 					t.Fatalf("seed signup: got %d", response.StatusCode)
@@ -91,11 +92,14 @@ func TestSignupEndpoint(t *testing.T) {
 					t.Fatalf("expected one user, got %d", count)
 				}
 			}
+			response.Body.Close()
+			helper.Cleanup(t, app.Pool, app.Cache)
 		})
 	}
 }
 
 func TestLoginEndpoint(t *testing.T) {
+	app := helper.NewApp(t)
 	cases := []struct {
 		name     string
 		email    string
@@ -112,7 +116,7 @@ func TestLoginEndpoint(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			app := helper.NewApp(t)
+			
 			if response := signup(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
 				t.Fatalf("seed signup: got %d", response.StatusCode)
 			}
@@ -123,11 +127,13 @@ func TestLoginEndpoint(t *testing.T) {
 			if test.code != "" && errorCode(t, response) != test.code {
 				t.Fatalf("expected error %s", test.code)
 			}
+			helper.Cleanup(t, app.Pool, app.Cache)
 		})
 	}
 }
 
 func TestRefreshEndpoint(t *testing.T) {
+	app := helper.NewApp(t)
 	cases := []struct {
 		name   string
 		cookie string
@@ -141,7 +147,7 @@ func TestRefreshEndpoint(t *testing.T) {
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
-			app := helper.NewApp(t)
+			
 			if response := signup(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
 				t.Fatalf("seed signup: got %d", response.StatusCode)
 			}
@@ -163,11 +169,13 @@ func TestRefreshEndpoint(t *testing.T) {
 			if test.code != "" && errorCode(t, response) != test.code {
 				t.Fatalf("expected error %s", test.code)
 			}
+			
+			helper.Cleanup(t, app.Pool, app.Cache)
 		})
 	}
 
 	t.Run("revoked refresh token", func(t *testing.T) {
-		app := helper.NewApp(t)
+	
 		if response := signup(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
 			t.Fatalf("seed signup: got %d", response.StatusCode)
 		}
@@ -182,13 +190,16 @@ func TestRefreshEndpoint(t *testing.T) {
 		if response.StatusCode != http.StatusUnauthorized || errorCode(t, response) != "INVALID_TOKEN" {
 			t.Fatalf("expected revoked refresh token, got %d", response.StatusCode)
 		}
+		response.Body.Close()
+		helper.Cleanup(t, app.Pool, app.Cache)
 	})
 }
 
 func TestLogoutEndpoints(t *testing.T) {
+	app := helper.NewApp(t)
 	for _, endpoint := range []string{"logout", "logout-all"} {
 		t.Run(endpoint, func(t *testing.T) {
-			app := helper.NewApp(t)
+			
 			if response := signup(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
 				t.Fatalf("seed signup: got %d", response.StatusCode)
 			}
@@ -218,6 +229,7 @@ func TestLogoutEndpoints(t *testing.T) {
 					if test.code != "" && errorCode(t, response) != test.code {
 						t.Fatalf("expected error %s", test.code)
 					}
+					
 				})
 			}
 			unknownToken, err := app.Tokens.GenerateAccessToken("00000000-0000-0000-0000-000000000001", 0)
@@ -235,6 +247,8 @@ func TestLogoutEndpoints(t *testing.T) {
 					t.Fatalf("expected stale token rejection, got %d", response.StatusCode)
 				}
 			}
+		
+			helper.Cleanup(t, app.Pool, app.Cache)
 		})
 	}
 }

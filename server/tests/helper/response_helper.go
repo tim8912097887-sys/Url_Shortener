@@ -21,6 +21,7 @@ func DecodeResponse[T any](t *testing.T, response *http.Response) T {
 	return payload
 }
 
+
 func ErrorCode(t *testing.T, response *http.Response) string {
 	t.Helper()
 	return DecodeResponse[envelope.ErrorResponse](t, response).Error.Code
