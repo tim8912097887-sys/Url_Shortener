@@ -126,18 +126,22 @@ func Cleanup(t *testing.T, pool *pgxpool.Pool, redisClient *redis.Client) {
 
 func cleanup(t *testing.T, pool *pgxpool.Pool) {
 	t.Helper()
+	t.Log("starting database cleanup")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if _, err := pool.Exec(ctx, "TRUNCATE TABLE urls_map, oauth_accounts, users RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("clean integration data: %v", err)
 	}
+	t.Log("database cleanup completed")
 }
 
 func cleanupCache(t *testing.T, redisClient *redis.Client) {
 	t.Helper()
+	t.Log("starting redis cleanup")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	if err := redisClient.FlushDB(ctx).Err(); err != nil {
 		t.Fatalf("clean integration cache: %v", err)
 	}
+	t.Log("redis cleanup completed")
 }
