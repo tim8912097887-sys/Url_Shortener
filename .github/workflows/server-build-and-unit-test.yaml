@@ -3,6 +3,7 @@ name: Url_Shortener_Server_Build_And_Unit_Test
 on:
   push:
     branches: ["main", "feat/**", "fix/**"]
+    paths: ["server/**", ".github/workflows/server-build-and-unit-test.yaml"]
   pull_request:
     branches: ["main"]
 
