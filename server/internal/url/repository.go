@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 	urlerror "github.com/tim8912097887-sys/url-shortener/internal/shared/error/url_error"
 	urlschema "github.com/tim8912097887-sys/url-shortener/internal/shared/schema/url_schema"
@@ -73,6 +74,13 @@ func (r *repository) CreateShortenUrl(
 		longURL,
 		expiredAt,
 	).Scan(&resultShortURL)
+
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) &&
+        pgErr.Code == "23505" &&
+		pgErr.ConstraintName == "unique_short_url" {
+			return "", urlerror.ErrShortURLCollision
+	}
 
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
 		return "", err
