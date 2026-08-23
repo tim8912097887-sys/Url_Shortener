@@ -17,6 +17,8 @@ import (
 	"github.com/redis/go-redis/v9"
 	urlerror "github.com/tim8912097887-sys/url-shortener/internal/shared/error/url_error"
 	"github.com/tim8912097887-sys/url-shortener/internal/shared/response/envelope"
+	urlschema "github.com/tim8912097887-sys/url-shortener/internal/shared/schema/url_schema"
+	jwttoken "github.com/tim8912097887-sys/url-shortener/internal/shared/util/jwt_token"
 	"github.com/tim8912097887-sys/url-shortener/internal/url"
 )
 
@@ -47,12 +49,24 @@ func wireupHandler(
 		Cache:      cache,
 		Logger:     logger,
 	})
+	tokens := jwttoken.NewTokenManager("access-secret", "refresh-secret")
 	handler := url.NewHandler(url.HandlerConfig{
 		Logger:  logger,
 		Service: service,
+		Tokens:  *tokens,
 	})
 
 	return &handler
+}
+
+func accessToken(t *testing.T, userID string) string {
+	t.Helper()
+	tokens := jwttoken.NewTokenManager("access-secret", "refresh-secret")
+	token, err := tokens.GenerateAccessToken(userID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return token
 }
 
 func setupRouter(t *testing.T, h *url.Handler) *fiber.App {
@@ -94,6 +108,19 @@ func getUrlRequest(t *testing.T, app *fiber.App, params string) *http.Response {
 	resp, err := app.Test(req, fiber.TestConfig{
 		Timeout: -1,
 	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
+func getUrlsForUserRequest(t *testing.T, app *fiber.App, token string) *http.Response {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/urls", nil)
+	if token != "" {
+		req.Header.Set(fiber.HeaderAuthorization, "Bearer "+token)
+	}
+	resp, err := app.Test(req, fiber.TestConfig{Timeout: -1})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -374,10 +401,99 @@ func TestGetUrlParams(t *testing.T) {
 
 }
 
+func TestGetUrlsForUser(t *testing.T) {
+	tests := []struct {
+		name          string
+		authenticated bool
+		token         string
+		repository    func(*MockRepository)
+		statusCode    int
+		errorCode     string
+	}{
+		{name: "missing authentication", statusCode: http.StatusUnauthorized, errorCode: "INVALID_TOKEN"},
+		{name: "invalid authentication", token: "invalid-token", statusCode: http.StatusUnauthorized, errorCode: "INVALID_TOKEN"},
+		{
+			name:          "repository failure",
+			authenticated: true,
+			repository: func(repository *MockRepository) {
+				repository.GetUrlsForUserFunc = func(context.Context, string) ([]urlschema.GetUrlsRepositoryResponse, error) {
+					return nil, errors.New("database unavailable")
+				}
+			},
+			statusCode: http.StatusInternalServerError,
+			errorCode:  "INTERNAL_SERVER_ERROR",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			repository := InitMockRepository()
+			if test.repository != nil {
+				test.repository(repository)
+			}
+			app := setupRouter(t, wireupHandler(t, repository, InitMockCache()))
+			token := test.token
+			if test.authenticated {
+				token = accessToken(t, "user-1")
+			}
+
+			resp := getUrlsForUserRequest(t, app, token)
+			if resp.StatusCode != test.statusCode {
+				t.Fatalf("expected status code %d but got %d", test.statusCode, resp.StatusCode)
+			}
+			if test.errorCode != "" && decodeResponse[envelope.ErrorResponse](t, resp).Error.Code != test.errorCode {
+				t.Fatalf("expected error code %s", test.errorCode)
+			}
+		})
+	}
+
+	t.Run("returns empty urls", func(t *testing.T) {
+		repository := InitMockRepository()
+		repository.GetUrlsForUserFunc = func(context.Context, string) ([]urlschema.GetUrlsRepositoryResponse, error) {
+			return []urlschema.GetUrlsRepositoryResponse{}, nil
+		}
+		app := setupRouter(t, wireupHandler(t, repository, InitMockCache()))
+		resp := getUrlsForUserRequest(t, app, accessToken(t, "user-1"))
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected status code %d but got %d", http.StatusOK, resp.StatusCode)
+		}
+		response := decodeResponse[envelope.SuccessResponse](t, resp)
+		data := response.Data.(map[string]any)
+		if urls := data["urls"]; urls != nil {
+			if list, ok := urls.([]any); !ok || len(list) != 0 {
+				t.Fatalf("expected no urls, got %#v", urls)
+			}
+		}
+	})
+
+	t.Run("returns user urls", func(t *testing.T) {
+		expiredAt := time.Now().Add(time.Hour).UTC().Truncate(time.Millisecond)
+		repository := InitMockRepository()
+		repository.GetUrlsForUserFunc = func(ctx context.Context, userID string) ([]urlschema.GetUrlsRepositoryResponse, error) {
+			if userID != "user-1" {
+				t.Fatalf("expected user-1, got %s", userID)
+			}
+			return []urlschema.GetUrlsRepositoryResponse{{ShortUrl: "abc12345", LongUrl: "https://example.com", ExpiredAt: expiredAt}}, nil
+		}
+		app := setupRouter(t, wireupHandler(t, repository, InitMockCache()))
+		resp := getUrlsForUserRequest(t, app, accessToken(t, "user-1"))
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected status code %d but got %d", http.StatusOK, resp.StatusCode)
+		}
+		response := decodeResponse[envelope.SuccessResponse](t, resp)
+		data := response.Data.(map[string]any)
+		urls := data["urls"].([]any)
+		if len(urls) != 1 || urls[0].(map[string]any)["short_url"] != "abc12345" {
+			t.Fatalf("unexpected urls response: %#v", urls)
+		}
+	})
+}
+
 type MockRepository struct {
 	GetLongUrlFunc       func(ctx context.Context, shortUrl string) (string, time.Time, error)
 	ShortCodeExistsFunc  func(ctx context.Context, shortUrl string) (bool, error)
-	CreateShortenUrlFunc func(ctx context.Context, longUrl string, shortUrl string) (string, error)
+	CreateShortenUrlFunc func(ctx context.Context, longUrl string, shortUrl string, userID *string, expiredAt time.Time) (string, error)
+	GetUrlsForUserFunc   func(ctx context.Context, userID string) ([]urlschema.GetUrlsRepositoryResponse, error)
 }
 
 func InitMockRepository() *MockRepository {
@@ -388,8 +504,11 @@ func InitMockRepository() *MockRepository {
 		ShortCodeExistsFunc: func(ctx context.Context, shortUrl string) (bool, error) {
 			return false, nil
 		},
-		CreateShortenUrlFunc: func(ctx context.Context, longUrl string, shortUrl string) (string, error) {
+		CreateShortenUrlFunc: func(ctx context.Context, longUrl string, shortUrl string, userID *string, expiredAt time.Time) (string, error) {
 			return shortUrl, nil
+		},
+		GetUrlsForUserFunc: func(ctx context.Context, userID string) ([]urlschema.GetUrlsRepositoryResponse, error) {
+			return []urlschema.GetUrlsRepositoryResponse{}, nil
 		},
 	}
 }
@@ -402,8 +521,12 @@ func (m *MockRepository) ShortCodeExists(ctx context.Context, shortUrl string) (
 	return m.ShortCodeExistsFunc(ctx, shortUrl)
 }
 
-func (m *MockRepository) CreateShortenUrl(ctx context.Context, longUrl string, shortUrl string) (string, error) {
-	return m.CreateShortenUrlFunc(ctx, longUrl, shortUrl)
+func (m *MockRepository) CreateShortenUrl(ctx context.Context, longUrl string, shortUrl string, userID *string, expiredAt time.Time) (string, error) {
+	return m.CreateShortenUrlFunc(ctx, longUrl, shortUrl, userID, expiredAt)
+}
+
+func (m *MockRepository) GetUrlsForUser(ctx context.Context, userID string) ([]urlschema.GetUrlsRepositoryResponse, error) {
+	return m.GetUrlsForUserFunc(ctx, userID)
 }
 
 type MockCache struct {
