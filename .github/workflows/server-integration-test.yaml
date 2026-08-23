@@ -16,7 +16,13 @@ jobs:
       name: Server-Integration-Test
     runs-on: ubuntu-latest
     env:
-      DB_DSN: ${{ secrets.SERVER_DB_URL }}
+      DB_URL: ${{ secrets.SERVER_DB_URL }}
+      REDIS_URL: ${{ secrets.SERVER_REDIS_URL }}
+      ACCESS_TOKEN_SECRET: ${{ secrets.SERVER_ACCESS_TOKEN_SECRET }}
+      REFRESH_TOKEN_SECRET: ${{ secrets.SERVER_REFRESH_TOKEN_SECRET }}
+      COOKIE_SECURE: true
+      COOKIE_SAME_SITE: none
+      COOKIE_DOMAIN: ${{ vars.SERVER_COOKIE_DOMAIN }}
     defaults:
       run:
         working-directory: ./server
