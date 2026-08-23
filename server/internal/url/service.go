@@ -22,6 +22,7 @@ const (
 type UrlRepository interface {
 	GetLongUrl(ctx context.Context, shortUrl string) (string, time.Time, error)
 	CreateShortenUrl(ctx context.Context, longUrl string, shortUrl string, userId *string, expiredAt time.Time) (string, error)
+    GetUrlsForUser(ctx context.Context, userId string) ([]urlschema.GetUrlsRepositoryResponse, error)
 }
 
 type UrlCache interface {
@@ -119,6 +120,25 @@ func (s *service) GetUrl(ctx context.Context, shortUrl string, authContext urlsc
 	}
 
 	return longUrl, nil
+}
+
+func (s *service) GetUrlsForUser(ctx context.Context, userId string) ([]urlschema.GetUrlsServiceResponse, error) {
+	urls, err := s.repository.GetUrlsForUser(ctx, userId)
+    
+	if err != nil {
+		return nil, err
+	}
+	
+	var response []urlschema.GetUrlsServiceResponse
+	for _, url := range urls {
+		response = append(response, urlschema.GetUrlsServiceResponse{
+			ShortUrl:  url.ShortUrl,
+			LongUrl:   url.LongUrl,
+			ExpiredAt: url.ExpiredAt,
+		})
+	}
+	
+	return response, nil
 }
 
 func urlCacheKey(short string) string {

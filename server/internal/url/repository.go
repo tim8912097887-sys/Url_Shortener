@@ -8,6 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	urlerror "github.com/tim8912097887-sys/url-shortener/internal/shared/error/url_error"
+	urlschema "github.com/tim8912097887-sys/url-shortener/internal/shared/schema/url_schema"
 )
 
 type repository struct {
@@ -91,4 +92,23 @@ func (r *repository) CreateShortenUrl(
 	}
 
 	return resultShortURL, nil
+}
+
+func (r *repository) GetUrlsForUser(ctx context.Context, userId string) ([]urlschema.GetUrlsRepositoryResponse, error) {
+	var urls []urlschema.GetUrlsRepositoryResponse
+	sql := `SELECT short_url, long_url, expired_at FROM urls_map WHERE user_id = $1 AND expired_at > NOW();`
+	row, err := r.pool.Query(ctx, sql, userId)
+	
+	if err != nil {
+		return nil, err
+	}
+	
+	for row.Next() {
+		var url urlschema.GetUrlsRepositoryResponse
+		if err := row.Scan(&url.ShortUrl, &url.LongUrl, &url.ExpiredAt); err != nil {
+			return nil, err
+		}
+		urls = append(urls, url)
+	}
+	return urls, nil
 }

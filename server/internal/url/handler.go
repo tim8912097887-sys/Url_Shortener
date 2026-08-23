@@ -5,6 +5,7 @@ import (
 	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
+	usererror "github.com/tim8912097887-sys/url-shortener/internal/shared/error/user_error"
 	"github.com/tim8912097887-sys/url-shortener/internal/shared/middleware"
 	"github.com/tim8912097887-sys/url-shortener/internal/shared/response/envelope"
 	writeresponse "github.com/tim8912097887-sys/url-shortener/internal/shared/response/write_response"
@@ -15,6 +16,7 @@ import (
 type UrlService interface {
 	ShortenUrl(ctx context.Context, url string, authContext urlschema.AuthContext) (string, error)
 	GetUrl(ctx context.Context, shortUrl string, authContext urlschema.AuthContext) (string, error)
+    GetUrlsForUser(ctx context.Context, userId string) ([]urlschema.GetUrlsServiceResponse, error)
 }
 
 type HandlerConfig struct {
@@ -40,6 +42,7 @@ func NewHandler(handlerConfig HandlerConfig) Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
      router.Post("/", middleware.AuthMiddleware(h.tokens, h.logger),h.ShortenUrl)
 	 router.Get("/:short_url", middleware.AuthMiddleware(h.tokens, h.logger),h.GetUrl)
+	 router.Get("/", middleware.AuthMiddleware(h.tokens, h.logger),h.GetUrlsForUser)
 }
 
 func (h *Handler) ShortenUrl(c fiber.Ctx) {
@@ -84,6 +87,25 @@ func (h *Handler) GetUrl(c fiber.Ctx) {
 	}
 
 	c.Redirect().Status(fiber.StatusTemporaryRedirect).To(longUrl)
+}
+
+func (h *Handler) GetUrlsForUser(c fiber.Ctx) {
+	// Get user id from fiber context locals
+	authContext := h.authFromLocals(c)
+
+	if !authContext.IsAuthenticated || authContext.UserID == "" {
+		writeresponse.ErrorHandler(c, usererror.ErrInvalidToken, h.logger, "failed to get urls for user")
+		return
+	}
+
+	urls, err := h.service.GetUrlsForUser(c.RequestCtx(), authContext.UserID)
+
+	if err != nil {
+		writeresponse.ErrorHandler(c, err, h.logger, "failed to get urls for user")
+		return
+	}
+
+	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]interface{}{"urls": urls, "message": "Successfully get urls for user"})
 }
 
 func (h *Handler) authFromLocals(c fiber.Ctx) urlschema.AuthContext {
