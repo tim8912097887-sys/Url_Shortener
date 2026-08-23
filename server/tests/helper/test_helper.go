@@ -114,13 +114,14 @@ func Request(t *testing.T, app *App, method, path string, payload any, auth, ref
 	recorder := httptest.NewRecorder()
 	app.Handler.ServeHTTP(recorder, req)
 	response := recorder.Result()
-	t.Cleanup(func() { response.Body.Close() })
+
 	return response
 }
 
-func Cleanup(t *testing.T, pool *pgxpool.Pool) {
+func Cleanup(t *testing.T, pool *pgxpool.Pool, redisClient *redis.Client) {
 	t.Helper()
 	cleanup(t, pool)
+	cleanupCache(t, redisClient)
 }
 
 func cleanup(t *testing.T, pool *pgxpool.Pool) {

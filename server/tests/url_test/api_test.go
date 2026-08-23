@@ -38,6 +38,7 @@ func shortURLFromResponse(t *testing.T, response *http.Response) string {
 }
 
 func TestShortenURL(t *testing.T) {
+	app := helper.NewApp(t)
 	tests := []struct {
 		name       string
 		payload    any
@@ -51,7 +52,6 @@ func TestShortenURL(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app := helper.NewApp(t)
 			response := helper.Request(t, app, http.MethodPost, "/api/v1/urls", test.payload, "", "")
 			if response.StatusCode != test.statusCode {
 				t.Fatalf("expected status %d, got %d", test.statusCode, response.StatusCode)
@@ -59,14 +59,14 @@ func TestShortenURL(t *testing.T) {
 			if helper.ErrorCode(t, response) != test.errorCode {
 				t.Fatalf("expected error %s", test.errorCode)
 			}
-			response.Body.Close()
+			helper.Cleanup(t, app.Pool, app.Cache)
 		})
 	}
 
 	t.Run("creates anonymous URL", func(t *testing.T) {
-		app := helper.NewApp(t)
+
 		response := createURL(t, app, "https://example.com/anonymous", "")
-		defer response.Body.Close()
+	
 		if response.StatusCode != http.StatusOK {
 			t.Fatalf("expected status %d, got %d", http.StatusOK, response.StatusCode)
 		}
@@ -82,10 +82,11 @@ func TestShortenURL(t *testing.T) {
 		if time.Until(expiredAt) < 6*24*time.Hour {
 			t.Fatalf("expected anonymous URL to expire in about 7 days, got expiry %s", expiredAt)
 		}
+		helper.Cleanup(t, app.Pool, app.Cache)
 	})
 
 	t.Run("creates authenticated URL with long expiry", func(t *testing.T) {
-		app := helper.NewApp(t)
+		
 		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
 			t.Fatalf("signup: got %d", response.StatusCode)
 		}
@@ -103,10 +104,11 @@ func TestShortenURL(t *testing.T) {
 		if userID == "" || time.Until(expiredAt) < 29*24*time.Hour {
 			t.Fatalf("expected authenticated URL to belong to user and expire in about 30 days, got user %q and expiry %s", userID, expiredAt)
 		}
+		helper.Cleanup(t, app.Pool, app.Cache)
 	})
 
 	t.Run("returns existing authenticated URL for duplicate long URL", func(t *testing.T) {
-		app := helper.NewApp(t)
+		
 		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
 			t.Fatalf("signup: got %d", response.StatusCode)
 		}
@@ -126,12 +128,14 @@ func TestShortenURL(t *testing.T) {
 		if count != 1 {
 			t.Fatalf("expected one stored URL, got %d", count)
 		}
+		helper.Cleanup(t, app.Pool, app.Cache)
 	})
 }
 
 func TestGetURL(t *testing.T) {
+	app := helper.NewApp(t)
 	t.Run("redirects to the original URL", func(t *testing.T) {
-		app := helper.NewApp(t)
+		
 		shortURL := shortURLFromResponse(t, createURL(t, app, "https://example.com/target", ""))
 		response := helper.Request(t, app, http.MethodGet, "/api/v1/urls/"+shortURL, nil, "", "")
 		if response.StatusCode != http.StatusTemporaryRedirect {
@@ -140,10 +144,12 @@ func TestGetURL(t *testing.T) {
 		if response.Header.Get("Location") != "https://example.com/target" {
 			t.Fatalf("expected redirect location, got %q", response.Header.Get("Location"))
 		}
+		response.Body.Close()
+		helper.Cleanup(t, app.Pool, app.Cache)
 	})
 
 	t.Run("serves a cache hit without the database row", func(t *testing.T) {
-		app := helper.NewApp(t)
+		
 		if err := app.Cache.Set(context.Background(), "url:cached1x", "https://example.com/cached", time.Minute).Err(); err != nil {
 			t.Fatal(err)
 		}
@@ -151,6 +157,8 @@ func TestGetURL(t *testing.T) {
 		if response.StatusCode != http.StatusTemporaryRedirect || response.Header.Get("Location") != "https://example.com/cached" {
 			t.Fatalf("expected cached redirect, got status %d and location %q", response.StatusCode, response.Header.Get("Location"))
 		}
+		response.Body.Close()
+		helper.Cleanup(t, app.Pool, app.Cache)
 	})
 
 	tests := []struct {
@@ -166,7 +174,7 @@ func TestGetURL(t *testing.T) {
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			app := helper.NewApp(t)
+			
 			response := helper.Request(t, app, http.MethodGet, "/api/v1/urls/"+test.shortURL, nil, "", "")
 			if response.StatusCode != test.statusCode {
 				t.Fatalf("expected status %d, got %d", test.statusCode, response.StatusCode)
@@ -174,11 +182,13 @@ func TestGetURL(t *testing.T) {
 			if helper.ErrorCode(t, response) != test.errorCode {
 				t.Fatalf("expected error %s", test.errorCode)
 			}
+			
+		    helper.Cleanup(t, app.Pool, app.Cache)
 		})
 	}
 
 	t.Run("expired URL is not redirected", func(t *testing.T) {
-		app := helper.NewApp(t)
+		
 		_, err := app.Pool.Exec(context.Background(), "INSERT INTO urls_map (short_url, long_url, expired_at) VALUES ($1, $2, NOW() - INTERVAL '1 hour')", "exprd01x", "https://example.com/expired")
 		if err != nil {
 			t.Fatal(err)
@@ -187,24 +197,29 @@ func TestGetURL(t *testing.T) {
 		if response.StatusCode != http.StatusNotFound || helper.ErrorCode(t, response) != "URL_NOT_FOUND" {
 			t.Fatalf("expected expired URL to be not found, got %d", response.StatusCode)
 		}
+		response.Body.Close()
+		helper.Cleanup(t, app.Pool, app.Cache)
 	})
 }
 
 func TestGetURLsForUser(t *testing.T) {
+	app := helper.NewApp(t)
 	t.Run("requires authentication", func(t *testing.T) {
 		for _, auth := range []string{"", "Basic invalid", "Bearer invalid"} {
 			t.Run(auth, func(t *testing.T) {
-				app := helper.NewApp(t)
+				
 				response := helper.Request(t, app, http.MethodGet, "/api/v1/urls", nil, auth, "")
 				if response.StatusCode != http.StatusUnauthorized || helper.ErrorCode(t, response) != "INVALID_TOKEN" {
 					t.Fatalf("expected invalid token response, got %d", response.StatusCode)
 				}
+				response.Body.Close()
+				helper.Cleanup(t, app.Pool, app.Cache)
 			})
 		}
 	})
 
 	t.Run("returns only active URLs owned by the authenticated user", func(t *testing.T) {
-		app := helper.NewApp(t)
+		
 		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
 			t.Fatalf("alice signup: got %d", response.StatusCode)
 		}
@@ -237,10 +252,12 @@ func TestGetURLsForUser(t *testing.T) {
 		if len(urls) != 1 || urls[0].(map[string]any)["short_url"] != aliceURL {
 			t.Fatalf("expected only Alice's active URL, got %#v", urls)
 		}
+		
+		helper.Cleanup(t, app.Pool, app.Cache)
 	})
 
 	t.Run("returns an empty list for a user without URLs", func(t *testing.T) {
-		app := helper.NewApp(t)
+		
 		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
 			t.Fatalf("signup: got %d", response.StatusCode)
 		}
@@ -257,5 +274,7 @@ func TestGetURLsForUser(t *testing.T) {
 		if data["urls"] != nil {
 			t.Fatalf("expected current empty-list response to contain null, got %#v", data["urls"])
 		}
+		
+		helper.Cleanup(t, app.Pool, app.Cache)
 	})
 }
