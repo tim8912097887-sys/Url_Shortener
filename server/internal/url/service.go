@@ -2,21 +2,26 @@ package url
 
 import (
 	"context"
+	"log"
 	"log/slog"
 	"time"
 
 	"github.com/redis/go-redis/v9"
 	urlerror "github.com/tim8912097887-sys/url-shortener/internal/shared/error/url_error"
+	urlschema "github.com/tim8912097887-sys/url-shortener/internal/shared/schema/url_schema"
 )
 
 const (
-	CacheTTL = 24 * time.Hour * 7
+	UnauthURLExpiry = 7 * 24 * time.Hour
+	AuthURLExpiry   = 30 * 24 * time.Hour
+
+	UnauthCacheTTL = 2 * time.Minute
+	AuthCacheTTL   = 2 * time.Hour
 )
 
 type UrlRepository interface {
-	ShortCodeExists(ctx context.Context, shortUrl string) (bool, error)
 	GetLongUrl(ctx context.Context, shortUrl string) (string, time.Time, error)
-	CreateShortenUrl(ctx context.Context, longUrl string, shortUrl string) (string, error)
+	CreateShortenUrl(ctx context.Context, longUrl string, shortUrl string, userId *string, expiredAt time.Time) (string, error)
 }
 
 type UrlCache interface {
@@ -44,9 +49,11 @@ func NewService(serviceConfig *ServiceConfig) *service {
 	}
 }
 
-func (s *service) ShortenUrl(ctx context.Context, url string) (string, error) {
+func (s *service) ShortenUrl(ctx context.Context, url string, authContext urlschema.AuthContext) (string, error) {
+
 	var shortUrl string
 	var err error
+	// Retry on short url collision,and update short url when exists
 	for {
 
 		shortUrl, err = GenerateCode(8)
@@ -55,31 +62,27 @@ func (s *service) ShortenUrl(ctx context.Context, url string) (string, error) {
 			return "", err
 		}
 
-		if existence, err := s.repository.ShortCodeExists(ctx, shortUrl); (err != nil || existence) {
-			if err != nil {
-				return "", err
-			}
-			if existence {
-				continue
-			}
+		expiredAt := time.Now().Add(urlExpiry(authContext))
+
+		var userId *string
+		if authContext.IsAuthenticated {
+			userId = &authContext.UserID
+		} else {
+			userId = nil
+		}
+
+		if shortUrl, err = s.repository.CreateShortenUrl(ctx, url, shortUrl, userId, expiredAt); err != nil {
+			log.Println("CreateShortenUrl error:", err)
+			continue
 		}
 
 		break
 	}
-
-	if _, err = s.repository.CreateShortenUrl(ctx, url, shortUrl); err != nil {
-		return "", err
-	}
-
-	// Write through cache
-	if err = s.cache.Set(ctx, urlCacheKey(shortUrl), url, CacheTTL); err != nil {
-	   s.logger.Error("failed to set cache",slog.Any("error", err))
-	}
-
 	return shortUrl, nil
 }
 
-func (s *service) GetUrl(ctx context.Context, shortUrl string) (string, error) {
+
+func (s *service) GetUrl(ctx context.Context, shortUrl string, authContext urlschema.AuthContext) (string, error) {
 	var longUrl string
 	var err error
 	var remainingTime time.Time
@@ -108,10 +111,10 @@ func (s *service) GetUrl(ctx context.Context, shortUrl string) (string, error) {
 		return "", urlerror.ErrUrlNotFound
 	}
 
-	cacheTTL := min(CacheTTL, timeUntilExpiry)
+	actualCacheTTL := min(cacheTTL(authContext), timeUntilExpiry)
 
 	// Cache aside
-	if err = s.cache.Set(ctx, urlCacheKey(shortUrl), longUrl, cacheTTL); err != nil {
+	if err = s.cache.Set(ctx, urlCacheKey(shortUrl), longUrl, actualCacheTTL); err != nil {
 		s.logger.Error("failed to set cache",slog.Any("error", err))
 	}
 
@@ -120,4 +123,20 @@ func (s *service) GetUrl(ctx context.Context, shortUrl string) (string, error) {
 
 func urlCacheKey(short string) string {
     return "url:" + short
+}
+
+func urlExpiry(auth urlschema.AuthContext) time.Duration {
+	if auth.IsAuthenticated {
+		return AuthURLExpiry
+	}
+
+	return UnauthURLExpiry
+}
+
+func cacheTTL(auth urlschema.AuthContext) time.Duration {
+	if auth.IsAuthenticated {
+		return AuthCacheTTL
+	}
+
+	return UnauthCacheTTL
 }

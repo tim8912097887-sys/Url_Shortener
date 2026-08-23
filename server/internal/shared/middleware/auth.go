@@ -26,9 +26,9 @@ func AuthMiddleware(tokens jwttoken.TokenManager, logger *slog.Logger) fiber.Han
 	return func(c fiber.Ctx) error {
 		header := c.Get(fiber.HeaderAuthorization)
 
+		// Allow unauthenticated users
 		if header == "" || !strings.HasPrefix(header, bearerPrefix) {
-			logger.Error("missing or malformed authorization header", slog.String("context", "auth middleware"))
-			return c.Status(fiber.StatusUnauthorized).JSON(envelope.NewErrorResponse(envelope.Error{Code: "INVALID_TOKEN", Message: usererror.ErrInvalidToken.Error()}))
+			return c.Next()
 		}
 		tokenString := strings.TrimPrefix(header, bearerPrefix)
 
