@@ -2,7 +2,7 @@ package url
 
 import (
 	"context"
-	"log"
+	"errors"
 	"log/slog"
 	"time"
 
@@ -73,8 +73,11 @@ func (s *service) ShortenUrl(ctx context.Context, url string, authContext urlsch
 		}
 
 		if shortUrl, err = s.repository.CreateShortenUrl(ctx, url, shortUrl, userId, expiredAt); err != nil {
-			log.Println("CreateShortenUrl error:", err)
-			continue
+			// Only retry on short url collision
+			if errors.Is(err, urlerror.ErrShortURLCollision) {
+				continue
+			}
+			return "", err
 		}
 
 		break
