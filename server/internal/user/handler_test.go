@@ -100,6 +100,7 @@ func request(t *testing.T, app *fiber.App, method, path string, payload any, coo
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { resp.Body.Close() })
 	return resp
 }
 

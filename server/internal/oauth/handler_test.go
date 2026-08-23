@@ -49,6 +49,7 @@ func request(t *testing.T, app *fiber.App, path string) *http.Response {
 	if err != nil {
 		t.Fatal(err)
 	}
+	t.Cleanup(func() { resp.Body.Close() })
 	return resp
 }
 

@@ -59,12 +59,14 @@ func TestShortenURL(t *testing.T) {
 			if helper.ErrorCode(t, response) != test.errorCode {
 				t.Fatalf("expected error %s", test.errorCode)
 			}
+			response.Body.Close()
 		})
 	}
 
 	t.Run("creates anonymous URL", func(t *testing.T) {
 		app := helper.NewApp(t)
 		response := createURL(t, app, "https://example.com/anonymous", "")
+		defer response.Body.Close()
 		if response.StatusCode != http.StatusOK {
 			t.Fatalf("expected status %d, got %d", http.StatusOK, response.StatusCode)
 		}
@@ -87,6 +89,7 @@ func TestShortenURL(t *testing.T) {
 		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
 			t.Fatalf("signup: got %d", response.StatusCode)
 		}
+	
 		accessToken, _, response := helper.LoginUser(t, app, "alice@example.com", "password1")
 		if response.StatusCode != http.StatusOK {
 			t.Fatalf("login: got %d", response.StatusCode)
