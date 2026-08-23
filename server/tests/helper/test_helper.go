@@ -113,7 +113,9 @@ func Request(t *testing.T, app *App, method, path string, payload any, auth, ref
 
 	recorder := httptest.NewRecorder()
 	app.Handler.ServeHTTP(recorder, req)
-	return recorder.Result()
+	response := recorder.Result()
+	t.Cleanup(func() { response.Body.Close() })
+	return response
 }
 
 func Cleanup(t *testing.T, pool *pgxpool.Pool) {
