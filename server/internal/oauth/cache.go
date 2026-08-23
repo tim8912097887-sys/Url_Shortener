@@ -27,7 +27,7 @@ func (c *Cache) Save(
 		ctx,
 		oAuthStateKey(state),
 		"1",
-		1*time.Minute,
+		5*time.Minute,
 	).Err()
 }
 
