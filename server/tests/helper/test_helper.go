@@ -129,7 +129,7 @@ func cleanup(t *testing.T, pool *pgxpool.Pool) {
 	t.Log("starting database cleanup")
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	if _, err := pool.Exec(ctx, "TRUNCATE TABLE urls_map, oauth_accounts, users RESTART IDENTITY CASCADE"); err != nil {
+	if _, err := pool.Exec(ctx, "TRUNCATE TABLE users, urls_map, oauth_accounts RESTART IDENTITY CASCADE"); err != nil {
 		t.Fatalf("clean integration data: %v", err)
 	}
 	t.Log("database cleanup completed")
