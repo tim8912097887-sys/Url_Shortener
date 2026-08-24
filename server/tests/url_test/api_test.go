@@ -63,7 +63,7 @@ func TestShortenURL(t *testing.T) {
 	}
 
 	t.Run("creates anonymous URL", func(t *testing.T) {
-
+        helper.Cleanup(t, app.Pool, app.Cache)
 		response := createURL(t, app, "https://example.com/anonymous", "")
 	
 		if response.StatusCode != http.StatusOK {
@@ -81,11 +81,11 @@ func TestShortenURL(t *testing.T) {
 		if time.Until(expiredAt) < 6*24*time.Hour {
 			t.Fatalf("expected anonymous URL to expire in about 7 days, got expiry %s", expiredAt)
 		}
-		helper.Cleanup(t, app.Pool, app.Cache)
+
 	})
 
 	t.Run("creates authenticated URL with long expiry", func(t *testing.T) {
-		
+		helper.Cleanup(t, app.Pool, app.Cache)
 		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
 			t.Fatalf("signup: got %d", response.StatusCode)
 		}
@@ -103,11 +103,11 @@ func TestShortenURL(t *testing.T) {
 		if userID == "" || time.Until(expiredAt) < 29*24*time.Hour {
 			t.Fatalf("expected authenticated URL to belong to user and expire in about 30 days, got user %q and expiry %s", userID, expiredAt)
 		}
-		helper.Cleanup(t, app.Pool, app.Cache)
+		
 	})
 
 	t.Run("returns existing authenticated URL for duplicate long URL", func(t *testing.T) {
-		
+		helper.Cleanup(t, app.Pool, app.Cache)
 		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
 			t.Fatalf("signup: got %d", response.StatusCode)
 		}
@@ -127,7 +127,7 @@ func TestShortenURL(t *testing.T) {
 		if count != 1 {
 			t.Fatalf("expected one stored URL, got %d", count)
 		}
-		helper.Cleanup(t, app.Pool, app.Cache)
+		
 	})
 }
 
