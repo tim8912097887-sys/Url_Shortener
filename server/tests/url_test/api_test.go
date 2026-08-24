@@ -59,7 +59,6 @@ func TestShortenURL(t *testing.T) {
 			if helper.ErrorCode(t, response) != test.errorCode {
 				t.Fatalf("expected error %s", test.errorCode)
 			}
-			helper.Cleanup(t, app.Pool, app.Cache)
 		})
 	}
 
@@ -182,8 +181,6 @@ func TestGetURL(t *testing.T) {
 			if helper.ErrorCode(t, response) != test.errorCode {
 				t.Fatalf("expected error %s", test.errorCode)
 			}
-			
-		    helper.Cleanup(t, app.Pool, app.Cache)
 		})
 	}
 
@@ -213,7 +210,6 @@ func TestGetURLsForUser(t *testing.T) {
 					t.Fatalf("expected invalid token response, got %d", response.StatusCode)
 				}
 				response.Body.Close()
-				helper.Cleanup(t, app.Pool, app.Cache)
 			})
 		}
 	})

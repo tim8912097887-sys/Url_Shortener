@@ -71,11 +71,6 @@ func TestSignupEndpoint(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			
-			if test.name == "duplicate email is idempotent" {
-				if response := signup(t, app, "alice", "a@example.com", "password1"); response.StatusCode != http.StatusOK {
-					t.Fatalf("seed signup: got %d", response.StatusCode)
-				}
-			}
 			response := helper.Request(t, app, http.MethodPost, "/api/v1/users/signup", test.payload, "", "")
 			if response.StatusCode != test.status {
 				t.Fatalf("expected status %d, got %d", test.status, response.StatusCode)
@@ -93,7 +88,6 @@ func TestSignupEndpoint(t *testing.T) {
 				}
 			}
 			response.Body.Close()
-			helper.Cleanup(t, app.Pool, app.Cache)
 		})
 	}
 }
