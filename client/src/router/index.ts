@@ -4,6 +4,7 @@ import PublicOnlyRoute from "../components/layout/PublicOnlyRoute";
 import LoginPage from "../pages/LoginPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import SignupPage from "../pages/SignupPage";
+import HomePage from "../pages/HomePage";
 
 export const router = createBrowserRouter([
   {
@@ -16,7 +17,7 @@ export const router = createBrowserRouter([
           { path: "/signup", Component: SignupPage },
         ],
       },
-
+      { path: "/", Component: HomePage },
       { path: "*", Component: NotFoundPage },
     ],
   },

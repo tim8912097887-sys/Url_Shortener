@@ -44,7 +44,7 @@ func (a *Api) Mount(pool *pgxpool.Pool,cache *redis.Client) http.Handler {
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: []string{a.apiConfig.Cfg.ClientOrigin},
 		AllowMethods: []string{"POST","GET"},
-		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
+		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Authorization"},
 		AllowCredentials: true,
 	}))
 
