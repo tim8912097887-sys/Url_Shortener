@@ -10,7 +10,7 @@ import {
   refreshRequest,
   signupRequest,
 } from "../services/auth.services";
-import { ApiError, normalizeApiError } from "../api/error";
+import { ApiError } from "../api/error";
 import { type TokenResponseData } from "../services/types";
 
 type AuthStore = {

@@ -28,7 +28,7 @@ type UserService interface {
 	Login(ctx context.Context, email, password string) (accessToken, refreshToken string, err error)
 	Logout(ctx context.Context, userID string, tokenVersion int) error
 	LogoutAll(ctx context.Context, userID string, tokenVersion int) error
-	Refresh(ctx context.Context, refreshToken string) (newAccessToken, newRefreshToken string, err error)
+	Refresh(ctx context.Context, userID string, tokenVersion int) (newAccessToken, newRefreshToken string, err error)
 }
 
 type HandlerConfig struct {
@@ -57,10 +57,10 @@ func NewHandler(handlerConfig HandlerConfig) Handler {
 func (h *Handler) RegisterRoutes(router fiber.Router) {
 	router.Post("/signup", h.Signup)
 	router.Post("/login", h.Login)
-	router.Post("/refresh", h.Refresh)
+	router.Post("/refresh", middleware.RefreshTokenMiddleware(h.tokens, h.logger), h.Refresh)
 
-	router.Post("/logout", middleware.AuthMiddleware(h.tokens, h.logger), h.Logout)
-	router.Post("/logout-all", middleware.AuthMiddleware(h.tokens, h.logger), h.LogoutAll)
+	router.Post("/logout", middleware.AccessTokenMiddleware(h.tokens, h.logger), h.Logout)
+	router.Post("/logout-all", middleware.AccessTokenMiddleware(h.tokens, h.logger), h.LogoutAll)
 }
 
 func (h *Handler) Signup(c fiber.Ctx) {
@@ -119,14 +119,13 @@ func (h *Handler) Login(c fiber.Ctx) {
 }
 
 func (h *Handler) Refresh(c fiber.Ctx) {
-	refreshToken := c.Cookies(refreshCookieName)
-
-	if refreshToken == "" {
+	userID, tokenVersion, ok := h.authFromLocals(c)
+	if !ok {
 		writeresponse.ErrorHandler(c, usererror.ErrInvalidToken, h.logger, "failed to refresh user")
 		return
 	}
 
-	newAccessToken, newRefreshToken, err := h.service.Refresh(c.RequestCtx(), refreshToken)
+	newAccessToken, newRefreshToken, err := h.service.Refresh(c.RequestCtx(), userID, tokenVersion)
 
 	if err != nil {
 		writeresponse.ErrorHandler(c, err, h.logger, "failed to refresh user")

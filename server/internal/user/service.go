@@ -144,13 +144,9 @@ func (s *service) LogoutAll(ctx context.Context, userID string, tokenVersion int
 // Refresh validates the refresh token's claims against the DB, then rotates
 // both tokens. Any failure — bad signature, expired token, unknown user,
 // stale token_version — collapses to ErrInvalidToken.
-func (s *service) Refresh(ctx context.Context, refreshToken string) (newAccessToken, newRefreshToken string, err error) {
-	claims, err := s.tokens.ParseRefreshToken(refreshToken)
-	if err != nil {
-		return "", "", usererror.ErrInvalidToken
-	}
+func (s *service) Refresh(ctx context.Context, userID string, tokenVersion int) (newAccessToken, newRefreshToken string, err error) {
 
-	u, err := s.repository.GetUserByID(ctx, claims.UserID)
+	u, err := s.repository.GetUserByID(ctx, userID)
 	if err != nil {
 		if errors.Is(err, usererror.ErrUserNotFound) {
 			return "", "", usererror.ErrInvalidToken
@@ -158,7 +154,7 @@ func (s *service) Refresh(ctx context.Context, refreshToken string) (newAccessTo
 		return "", "", err
 	}
 
-	if u.TokenVersion != claims.TokenVersion {
+	if u.TokenVersion != tokenVersion {
 		return "", "", usererror.ErrInvalidToken
 	}
 
