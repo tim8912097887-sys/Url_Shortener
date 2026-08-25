@@ -83,12 +83,7 @@ export default function LoginForm() {
           <Form.Feedback>{touched.password && errors.password}</Form.Feedback>
         </Form.Group>
 
-        <Button
-          type="submit"
-          fullWidth
-          isLoading={isSubmitting}
-          disabled={isSubmitting}
-        >
+        <Button type="submit" fullWidth isLoading={isSubmitting}>
           Log in
         </Button>
       </Form>
