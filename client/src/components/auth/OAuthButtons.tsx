@@ -29,14 +29,13 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export default function OAuthButtons() {
+type OAuthButtonsProps = {
+  onOAuth: () => Promise<void>;
+};
+
+export default function OAuthButtons({ onOAuth }: OAuthButtonsProps) {
   return (
-    <Button
-      type="button"
-      variant="secondary"
-      fullWidth
-      onClick={() => "oauthApi.redirectToGoogleLogin()"}
-    >
+    <Button type="button" variant="secondary" fullWidth onClick={onOAuth}>
       <GoogleIcon />
       Continue with Google
     </Button>

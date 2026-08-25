@@ -13,8 +13,17 @@ export default function LoginForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const login = useAuthStore((s) => s.login);
+  const oauthLogin = useAuthStore((s) => s.oauthLogin);
+  const submittingError = useAuthStore((s) => s.submittingError);
   const redirectTo = location.state?.from?.pathname ?? "/";
 
+  const handleOAuthLogin = async () => {
+    const data = await oauthLogin();
+    console.log("Oauth data", data);
+    if (data) {
+      navigate(redirectTo, { replace: true });
+    }
+  };
   const {
     values,
     errors,
@@ -40,7 +49,7 @@ export default function LoginForm() {
     <div className="space-y-6">
       <Form onSubmit={handleSubmit}>
         {submitError && <Alert variant="error">{submitError}</Alert>}
-
+        {submittingError && <Alert variant="error">{submittingError}</Alert>}
         <Form.Group
           controlId="login-email"
           isInvalid={touched.email && Boolean(errors.email)}
@@ -62,15 +71,7 @@ export default function LoginForm() {
           controlId="login-password"
           isInvalid={touched.password && Boolean(errors.password)}
         >
-          <div className="flex items-center justify-between">
-            <Form.Label>Password</Form.Label>
-            <Link
-              to="/forgot-password"
-              className="text-xs font-medium text-teal-600 hover:text-teal-700"
-            >
-              Forgot password?
-            </Link>
-          </div>
+          <Form.Label>Password</Form.Label>
           <Form.Control
             type="password"
             name="password"
@@ -89,7 +90,7 @@ export default function LoginForm() {
       </Form>
 
       <Divider label="or" />
-      <OAuthButtons />
+      <OAuthButtons onOAuth={handleOAuthLogin} />
 
       <p className="text-center text-sm text-slate-500">
         Don&apos;t have an account?{" "}

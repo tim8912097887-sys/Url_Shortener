@@ -12,6 +12,7 @@ import {
 } from "../services/auth.services";
 import { ApiError } from "../api/error";
 import { type TokenResponseData } from "../services/types";
+import { oauthRequest } from "../services/oauth.services";
 
 type AuthStore = {
   accessToken: string | null;
@@ -19,6 +20,8 @@ type AuthStore = {
   isAuthenticated: boolean;
   isInitializing: boolean;
   error: string | null;
+  isSubmitting: boolean;
+  submittingError: string | null;
   clearError: () => void;
   setAccessToken: (accessToken: string) => void;
   clearAuth: () => void;
@@ -27,6 +30,7 @@ type AuthStore = {
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
   signup: (payload: SignupSchemaType) => Promise<any>;
+  oauthLogin: () => Promise<any>;
 };
 
 const initialState = {
@@ -39,6 +43,7 @@ const initialState = {
   isInitializing: true,
   isSubmitting: false,
   error: null,
+  submittingError: null,
 };
 
 export const useAuthStore = create<AuthStore>()(
@@ -73,6 +78,7 @@ export const useAuthStore = create<AuthStore>()(
       // Call once on app boot. Relies on the httpOnly refresh_token cookie;
       // a 401 here just means "not logged in," not an error to surface.
       initializeAuth: async () => {
+        set({ ...initialState, submittingError: null });
         try {
           const data = await refreshRequest<TokenResponseData>();
           const accessToken = extractAccessToken(data);
@@ -90,6 +96,7 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       signup: async (payload) => {
+        set({ ...initialState, submittingError: null });
         try {
           const data = await signupRequest(payload);
           return data;
@@ -99,6 +106,7 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       login: async (payload) => {
+        set({ ...initialState, submittingError: null });
         try {
           const data = await loginRequest<TokenResponseData>(payload);
           const accessToken = extractAccessToken(data);
@@ -130,6 +138,28 @@ export const useAuthStore = create<AuthStore>()(
           await logoutAllRequest(accessToken);
         } finally {
           set({ ...initialState, isInitializing: false });
+        }
+      },
+
+      oauthLogin: async () => {
+        set({ ...initialState, isSubmitting: true, submittingError: null });
+        try {
+          const data = await oauthRequest();
+          const accessToken = extractAccessToken(data);
+          set({
+            accessToken,
+            user: decodeAccessToken(accessToken),
+            isAuthenticated: Boolean(accessToken),
+            isSubmitting: false,
+          });
+          return data;
+        } catch (err: ApiError | any) {
+          console.log("Oauth error", err);
+          set({
+            ...initialState,
+            isSubmitting: false,
+            submittingError: err.message || "An unexpected error occurred",
+          });
         }
       },
     }),
