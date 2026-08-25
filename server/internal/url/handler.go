@@ -40,9 +40,9 @@ func NewHandler(handlerConfig HandlerConfig) Handler {
 }
 
 func (h *Handler) RegisterRoutes(router fiber.Router) {
-     router.Post("/", middleware.AuthMiddleware(h.tokens, h.logger),h.ShortenUrl)
-	 router.Get("/:short_url", middleware.AuthMiddleware(h.tokens, h.logger),h.GetUrl)
-	 router.Get("/", middleware.AuthMiddleware(h.tokens, h.logger),h.GetUrlsForUser)
+     router.Post("/", middleware.AccessTokenMiddleware(h.tokens, h.logger),h.ShortenUrl)
+	 router.Get("/:short_url", middleware.RefreshTokenMiddleware(h.tokens, h.logger), h.GetUrl)
+	 router.Get("/", middleware.AccessTokenMiddleware(h.tokens, h.logger),h.GetUrlsForUser)
 }
 
 func (h *Handler) ShortenUrl(c fiber.Ctx) {
