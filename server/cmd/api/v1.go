@@ -45,6 +45,7 @@ func (a *Api) Mount(pool *pgxpool.Pool,cache *redis.Client) http.Handler {
 		AllowOrigins: []string{a.apiConfig.Cfg.ClientOrigin},
 		AllowMethods: []string{"POST","GET"},
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept"},
+		AllowCredentials: true,
 	}))
 
 	// Utils
