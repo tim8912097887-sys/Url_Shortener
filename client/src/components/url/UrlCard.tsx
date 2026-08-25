@@ -45,25 +45,27 @@ const UrlCard = ({ setShortUrl }: UrlCardProps) => {
   });
 
   return (
-    <div className="space-y-6">
-      <Form onSubmit={handleSubmit}>
-        {submitError && <Alert variant="error">{submitError}</Alert>}
-        <Form.Group controlId="url" isInvalid={!!errors.url && touched.url}>
-          <Form.Label>URL</Form.Label>
-          <Form.Control
-            type="url"
-            placeholder="https://example.com"
-            name="url"
-            value={values.url}
-            onChange={handleChange}
-            onBlur={handleBlur}
-          />
-          <Form.Feedback>{touched.url && errors.url}</Form.Feedback>
-        </Form.Group>
-        <Button type="submit" fullWidth isLoading={isSubmitting}>
-          Shorten
-        </Button>
-      </Form>
+    <div className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-8 shadow-sm">
+      <div className="space-y-6">
+        <Form onSubmit={handleSubmit}>
+          {submitError && <Alert variant="error">{submitError}</Alert>}
+          <Form.Group controlId="url" isInvalid={!!errors.url && touched.url}>
+            <Form.Label>URL</Form.Label>
+            <Form.Control
+              type="url"
+              placeholder="https://example.com"
+              name="url"
+              value={values.url}
+              onChange={handleChange}
+              onBlur={handleBlur}
+            />
+            <Form.Feedback>{touched.url && errors.url}</Form.Feedback>
+          </Form.Group>
+          <Button type="submit" fullWidth isLoading={isSubmitting}>
+            Shorten
+          </Button>
+        </Form>
+      </div>
     </div>
   );
 };
