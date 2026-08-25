@@ -29,3 +29,10 @@ export type TokenResponseData = {
 };
 
 export type TokenResponse = SuccessResponse<TokenResponseData>;
+
+export type ShortenData = {
+  shortUrl: string;
+  message: string;
+};
+
+export type UrlResponse = SuccessResponse<ShortenData>;

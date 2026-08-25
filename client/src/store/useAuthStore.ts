@@ -93,9 +93,8 @@ export const useAuthStore = create<AuthStore>()(
         try {
           const data = await signupRequest(payload);
           return data;
-        } catch (err) {
-          const normalizeError = normalizeApiError(err);
-          throw new Error(normalizeError.message);
+        } catch (err: ApiError | any) {
+          throw new Error(err.message || "An unexpected error occurred");
         }
       },
 
@@ -110,7 +109,7 @@ export const useAuthStore = create<AuthStore>()(
           });
           return data;
         } catch (err: ApiError | any) {
-          throw new Error(err.message);
+          throw new Error(err.message || "An unexpected error occurred");
         }
       },
 

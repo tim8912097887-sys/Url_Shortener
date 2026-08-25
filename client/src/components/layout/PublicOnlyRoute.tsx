@@ -7,7 +7,7 @@ export default function PublicOnlyRoute() {
   const isInitializing = useAuthStore((s) => s.isInitializing);
 
   if (!isInitializing && isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/" replace />;
   }
 
   return <Outlet />;
