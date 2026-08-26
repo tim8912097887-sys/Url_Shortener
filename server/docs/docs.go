@@ -34,19 +34,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.GetUrlsResponse"
+                            "$ref": "#/definitions/urlschema.GetUrlsResponse"
                         }
                     },
                     "401": {
                         "description": "Missing or invalid access token",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     }
                 }
@@ -70,7 +70,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/internal_url.CreateUrlSchema"
+                            "$ref": "#/definitions/url.CreateUrlSchema"
                         }
                     }
                 ],
@@ -78,25 +78,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.ShortenUrlResponse"
+                            "$ref": "#/definitions/urlschema.ShortenUrlResponse"
                         }
                     },
                     "400": {
                         "description": "Invalid request body or URL",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     },
                     "429": {
                         "description": "Rate limit exceeded",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     }
                 }
@@ -129,19 +129,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Invalid short URL",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     },
                     "404": {
                         "description": "URL not found or expired",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     }
                 }
@@ -167,7 +167,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LoginRequest"
+                            "$ref": "#/definitions/userschema.LoginRequest"
                         }
                     }
                 ],
@@ -175,25 +175,25 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LoginResponse"
+                            "$ref": "#/definitions/userschema.LoginResponse"
                         }
                     },
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     },
                     "401": {
                         "description": "Invalid credentials",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     }
                 }
@@ -218,19 +218,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LogoutResponse"
+                            "$ref": "#/definitions/userschema.LogoutResponse"
                         }
                     },
                     "401": {
                         "description": "Missing or invalid access token",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     }
                 }
@@ -255,19 +255,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LogoutAllResponse"
+                            "$ref": "#/definitions/userschema.LogoutAllResponse"
                         }
                     },
                     "401": {
                         "description": "Missing or invalid access token",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     }
                 }
@@ -287,19 +287,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.RefreshResponse"
+                            "$ref": "#/definitions/userschema.RefreshResponse"
                         }
                     },
                     "401": {
                         "description": "Missing, expired, or invalid refresh token",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     }
                 }
@@ -325,7 +325,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.SignupRequest"
+                            "$ref": "#/definitions/userschema.SignupRequest"
                         }
                     }
                 ],
@@ -333,19 +333,19 @@ const docTemplate = `{
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.SignupResponse"
+                            "$ref": "#/definitions/userschema.SignupResponse"
                         }
                     },
                     "400": {
                         "description": "Invalid request",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     },
                     "500": {
                         "description": "Internal server error",
                         "schema": {
-                            "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse"
+                            "$ref": "#/definitions/envelope.ErrorResponse"
                         }
                     }
                 }
@@ -353,7 +353,7 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.Error": {
+        "envelope.Error": {
             "type": "object",
             "properties": {
                 "code": {
@@ -364,22 +364,22 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse": {
+        "envelope.ErrorResponse": {
             "type": "object",
             "properties": {
                 "data": {},
                 "error": {
-                    "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.Error"
+                    "$ref": "#/definitions/envelope.Error"
                 },
                 "metaData": {
-                    "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.MetaData"
+                    "$ref": "#/definitions/envelope.MetaData"
                 },
                 "state": {
                     "type": "string"
                 }
             }
         },
-        "github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.MetaData": {
+        "envelope.MetaData": {
             "type": "object",
             "properties": {
                 "timestamp": {
@@ -387,7 +387,18 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.GetUrlsResponse": {
+        "url.CreateUrlSchema": {
+            "type": "object",
+            "required": [
+                "url"
+            ],
+            "properties": {
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "urlschema.GetUrlsResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -396,12 +407,12 @@ const docTemplate = `{
                 "urls": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.GetUrlsServiceResponse"
+                        "$ref": "#/definitions/urlschema.GetUrlsServiceResponse"
                     }
                 }
             }
         },
-        "github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.GetUrlsServiceResponse": {
+        "urlschema.GetUrlsServiceResponse": {
             "type": "object",
             "properties": {
                 "expired_at": {
@@ -415,7 +426,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.ShortenUrlResponse": {
+        "urlschema.ShortenUrlResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -426,7 +437,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LoginRequest": {
+        "userschema.LoginRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -443,7 +454,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LoginResponse": {
+        "userschema.LoginResponse": {
             "type": "object",
             "properties": {
                 "accessToken": {
@@ -454,7 +465,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LogoutAllResponse": {
+        "userschema.LogoutAllResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -462,7 +473,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LogoutResponse": {
+        "userschema.LogoutResponse": {
             "type": "object",
             "properties": {
                 "message": {
@@ -470,7 +481,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.RefreshResponse": {
+        "userschema.RefreshResponse": {
             "type": "object",
             "properties": {
                 "accessToken": {
@@ -481,7 +492,7 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.SignupRequest": {
+        "userschema.SignupRequest": {
             "type": "object",
             "required": [
                 "email",
@@ -506,21 +517,10 @@ const docTemplate = `{
                 }
             }
         },
-        "github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.SignupResponse": {
+        "userschema.SignupResponse": {
             "type": "object",
             "properties": {
                 "message": {
-                    "type": "string"
-                }
-            }
-        },
-        "internal_url.CreateUrlSchema": {
-            "type": "object",
-            "required": [
-                "url"
-            ],
-            "properties": {
-                "url": {
                     "type": "string"
                 }
             }
