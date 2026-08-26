@@ -5,6 +5,7 @@ import LoginPage from "../pages/LoginPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import SignupPage from "../pages/SignupPage";
 import HomePage from "../pages/HomePage";
+import { OAuthPage } from "../pages/OAuthPage";
 
 export const router = createBrowserRouter([
   {
@@ -18,6 +19,7 @@ export const router = createBrowserRouter([
         ],
       },
       { path: "/", Component: HomePage },
+      { path: "/oauth-callback", Component: OAuthPage },
       { path: "*", Component: NotFoundPage },
     ],
   },
