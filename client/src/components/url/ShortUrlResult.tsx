@@ -18,7 +18,7 @@ const ShortUrlResult = ({ shortUrl }: ShortUrlResultProps) => {
   };
 
   return (
-    <div className="bg-white border border-slate-100 shadow-xl shadow-slate-200/50 rounded-2xl p-6 w-full mt-6 animate-fade-in">
+    <div className="bg-white border border-slate-100 shadow-xl shadow-slate-200/50 rounded-2xl p-6 w-full mt-6 animate-fade-in max-w-md">
       <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">
         Your Shortened Link
       </p>
