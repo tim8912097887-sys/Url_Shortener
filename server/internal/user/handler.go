@@ -204,11 +204,10 @@ func (h *Handler) setRefreshCookie(c fiber.Ctx, refreshToken string) {
 		Name:     refreshCookieName,
 		Value:    refreshToken,
 		Path:     refreshCookiePath,
-		Domain:   h.cfg.CookieDomain,
 		Expires:  time.Now().Add(jwttoken.RefreshTokenTTL),
 		MaxAge:   int(jwttoken.RefreshTokenTTL.Seconds()),
 		HTTPOnly: true,
-		Secure:   h.cfg.CookieSecure,
+		Secure:   true,
 		SameSite: h.cfg.CookieSameSite,
 	})
 }
@@ -221,6 +220,6 @@ func (h *Handler) clearRefreshCookie(c fiber.Ctx) {
 		Expires:  time.Now().Add(-time.Hour),
 		HTTPOnly: true,
 		Secure:   true,
-		SameSite: fiber.CookieSameSiteStrictMode,
+		SameSite: h.cfg.CookieSameSite,
 	})
 }
