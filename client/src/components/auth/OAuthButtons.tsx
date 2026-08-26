@@ -1,5 +1,3 @@
-import Button from "../ui/button/Button";
-
 function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
@@ -30,14 +28,17 @@ function GoogleIcon(props: React.SVGProps<SVGSVGElement>) {
 }
 
 type OAuthButtonsProps = {
-  onOAuth: () => Promise<void>;
+  href: string;
 };
 
-export default function OAuthButtons({ onOAuth }: OAuthButtonsProps) {
+export default function OAuthButtons({ href }: OAuthButtonsProps) {
   return (
-    <Button type="button" variant="secondary" fullWidth onClick={onOAuth}>
+    <a
+      href={href}
+      className="flex w-full items-center justify-center gap-2 rounded-md border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+    >
       <GoogleIcon />
       Continue with Google
-    </Button>
+    </a>
   );
 }
