@@ -1,0 +1,406 @@
+basePath: /api/v1
+definitions:
+  github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.Error:
+    properties:
+      code:
+        type: string
+      message:
+        type: string
+    type: object
+  github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse:
+    properties:
+      data: {}
+      error:
+        $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.Error'
+      metaData:
+        $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.MetaData'
+      state:
+        type: string
+    type: object
+  github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.MetaData:
+    properties:
+      timestamp:
+        type: string
+    type: object
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.GetUrlsResponse:
+    properties:
+      message:
+        type: string
+      urls:
+        items:
+          $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.GetUrlsServiceResponse'
+        type: array
+    type: object
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.GetUrlsServiceResponse:
+    properties:
+      expired_at:
+        type: string
+      long_url:
+        type: string
+      short_url:
+        type: string
+    type: object
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.ShortenUrlResponse:
+    properties:
+      message:
+        type: string
+      shortUrl:
+        type: string
+    type: object
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        maxLength: 72
+        minLength: 8
+        type: string
+    required:
+    - email
+    - password
+    type: object
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LoginResponse:
+    properties:
+      accessToken:
+        type: string
+      message:
+        type: string
+    type: object
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LogoutAllResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LogoutResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.RefreshResponse:
+    properties:
+      accessToken:
+        type: string
+      message:
+        type: string
+    type: object
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.SignupRequest:
+    properties:
+      email:
+        maxLength: 255
+        type: string
+      password:
+        description: bcrypt silently truncates/errors past 72 bytes, so cap it here.
+        maxLength: 72
+        minLength: 8
+        type: string
+      username:
+        maxLength: 50
+        minLength: 3
+        type: string
+    required:
+    - email
+    - password
+    - username
+    type: object
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.SignupResponse:
+    properties:
+      message:
+        type: string
+    type: object
+  internal_url.CreateUrlSchema:
+    properties:
+      url:
+        type: string
+    required:
+    - url
+    type: object
+info:
+  contact: {}
+  description: |-
+    Production-ready URL shortener API with JWT authentication, refresh-token rotation, and Google OAuth.
+
+    ## Authentication
+    Most protected endpoints require an access token in the Authorization header:
+    `Authorization: Bearer <access_token>`
+
+    Access tokens are short-lived. Refresh tokens are stored in an HttpOnly cookie and used to obtain a new access token.
+
+    ## URL Expiration
+    Authenticated users receive longer URL expiration and cache durations.
+    Unauthenticated URLs expire earlier.
+
+    ## Rate Limiting
+    URL endpoints are rate limited to protect the service from abuse.
+  title: URL Shortener API
+  version: 1.0.0
+paths:
+  /urls:
+    get:
+      description: |-
+        Returns all shortened URLs owned by the authenticated user.
+
+        Only URLs created by the current authenticated user are returned.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.GetUrlsResponse'
+        "401":
+          description: Missing or invalid access token
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Get current user's shortened URLs
+      tags:
+      - URLs
+    post:
+      consumes:
+      - application/json
+      description: |
+        Creates a shortened URL.
+
+        The URL expiration depends on authentication status:
+        - Authenticated users: longer expiration period.
+        - Anonymous users: shorter expiration period.
+      parameters:
+      - description: URL to shorten
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/internal_url.CreateUrlSchema'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.ShortenUrlResponse'
+        "400":
+          description: Invalid request body or URL
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+        "429":
+          description: Rate limit exceeded
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+      summary: Create a shortened URL
+      tags:
+      - URLs
+  /urls/{short_url}:
+    get:
+      description: |-
+        Resolves a shortened URL and redirects the client to the original destination.
+
+        The endpoint uses a cache-aside strategy:
+        1. Redis cache is checked first.
+        2. On cache miss, the URL is loaded from PostgreSQL.
+        3. The result is cached with a TTL that never exceeds the URL expiration time.
+
+        Expired URLs are treated as not found.
+      parameters:
+      - description: Short URL code
+        example: abc12345
+        in: path
+        name: short_url
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "307":
+          description: Temporary Redirect
+        "400":
+          description: Invalid short URL
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+        "404":
+          description: URL not found or expired
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+      summary: Resolve a shortened URL
+      tags:
+      - URLs
+  /users/login:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Authenticates a user with email and password.
+
+        Returns a short-lived access token in the response body.
+        A refresh token is stored in an HttpOnly Secure cookie.
+
+        For security, invalid email and invalid password return the same error.
+      parameters:
+      - description: Login credentials
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LoginResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+        "401":
+          description: Invalid credentials
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+      summary: Login
+      tags:
+      - Users
+  /users/logout:
+    post:
+      description: |-
+        Clears the refresh token cookie from the current browser.
+
+        This endpoint does not invalidate all tokens server-side.
+        Use Logout All Sessions to invalidate tokens across devices.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LogoutResponse'
+        "401":
+          description: Missing or invalid access token
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout current device
+      tags:
+      - Users
+  /users/logout-all:
+    post:
+      description: |-
+        Invalidates all active access and refresh tokens for the user.
+
+        The user's token version is incremented, causing previously issued
+        access and refresh tokens to become invalid.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LogoutAllResponse'
+        "401":
+          description: Missing or invalid access token
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+      security:
+      - BearerAuth: []
+      summary: Logout all sessions
+      tags:
+      - Users
+  /users/refresh:
+    post:
+      description: |-
+        Issues a new access token using the refresh_token HttpOnly cookie.
+
+        The refresh token is rotated after a successful refresh.
+        The new refresh token is returned as a replacement HttpOnly Secure cookie.
+
+        Clients should call this endpoint when the access token expires.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.RefreshResponse'
+        "401":
+          description: Missing, expired, or invalid refresh token
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+      summary: Refresh access token
+      tags:
+      - Users
+  /users/signup:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Registers a new user account.
+
+        For security, this endpoint returns the same successful response
+        whether the email is newly registered or already exists.
+        This prevents account enumeration.
+      parameters:
+      - description: Signup request
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.SignupRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.SignupResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
+      summary: Create user account
+      tags:
+      - Users
+securityDefinitions:
+  BearerAuth:
+    description: 'Enter your access token in the format: Bearer {access_token}'
+    in: header
+    name: Authorization
+    type: apiKey
+  RefreshCookie:
+    description: HttpOnly refresh token cookie automatically sent by the browser.
+    in: cookie
+    name: refresh_token
+    type: apiKey
+swagger: "2.0"

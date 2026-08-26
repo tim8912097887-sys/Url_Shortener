@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	swaggo "github.com/gofiber/contrib/v3/swaggo"
 	"github.com/gofiber/fiber/v3"
 	"github.com/gofiber/fiber/v3/middleware/adaptor"
 
@@ -37,9 +38,39 @@ func NewApi(apiConfig ApiConfig) *Api {
 	}
 }
 
+// @title URL Shortener API
+// @version 1.0.0
+// @description Production-ready URL shortener API with JWT authentication, refresh-token rotation, and Google OAuth.
+// @description
+// @description ## Authentication
+// @description Most protected endpoints require an access token in the Authorization header:
+// @description `Authorization: Bearer <access_token>`
+// @description
+// @description Access tokens are short-lived. Refresh tokens are stored in an HttpOnly cookie and used to obtain a new access token.
+// @description
+// @description ## URL Expiration
+// @description Authenticated users receive longer URL expiration and cache durations.
+// @description Unauthenticated URLs expire earlier.
+// @description
+// @description ## Rate Limiting
+// @description URL endpoints are rate limited to protect the service from abuse.
+
+// @BasePath /api/v1
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Enter your access token in the format: Bearer {access_token}
+
+// @securityDefinitions.apikey RefreshCookie
+// @in cookie
+// @name refresh_token
+// @description HttpOnly refresh token cookie automatically sent by the browser.
 func (a *Api) Mount(pool *pgxpool.Pool,cache *redis.Client) http.Handler {
 	app := fiber.New()
 
+	// Swagger
+	app.Get("/swagger/*", swaggo.HandlerDefault)
 	// Configure cors
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: []string{a.apiConfig.Cfg.ClientOrigin},

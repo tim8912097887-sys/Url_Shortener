@@ -137,8 +137,8 @@ func TestSignup(t *testing.T) {
 		})
 	}
 	app, _ := newApp(t, newRepository())
-	if resp := request(t, app, http.MethodPost, "/api/v1/users/signup", userschema.SignupRequest{Username: "alice", Email: "a@example.com", Password: "password1"}, "", ""); resp.StatusCode != 200 {
-		t.Fatalf("expected 200, got %d", resp.StatusCode)
+	if resp := request(t, app, http.MethodPost, "/api/v1/users/signup", userschema.SignupRequest{Username: "alice", Email: "a@example.com", Password: "password1"}, "", ""); resp.StatusCode != 201 {
+		t.Fatalf("expected 201, got %d", resp.StatusCode)
 	}
 }
 
