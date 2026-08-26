@@ -8,22 +8,14 @@ import { useForm } from "../../hooks/useForm";
 import { useAuthStore } from "../../store/useAuthStore";
 import { loginSchema, type LoginSchemaType } from "../../schema/login";
 import { ValidateInput } from "../../utils/validation";
+import { env } from "../../config/env";
 
 export default function LoginForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const login = useAuthStore((s) => s.login);
-  const oauthLogin = useAuthStore((s) => s.oauthLogin);
-  const submittingError = useAuthStore((s) => s.submittingError);
   const redirectTo = location.state?.from?.pathname ?? "/";
 
-  const handleOAuthLogin = async () => {
-    const data = await oauthLogin();
-    console.log("Oauth data", data);
-    if (data) {
-      navigate(redirectTo, { replace: true });
-    }
-  };
   const {
     values,
     errors,
@@ -49,7 +41,6 @@ export default function LoginForm() {
     <div className="space-y-6">
       <Form onSubmit={handleSubmit}>
         {submitError && <Alert variant="error">{submitError}</Alert>}
-        {submittingError && <Alert variant="error">{submittingError}</Alert>}
         <Form.Group
           controlId="login-email"
           isInvalid={touched.email && Boolean(errors.email)}
@@ -90,7 +81,7 @@ export default function LoginForm() {
       </Form>
 
       <Divider label="or" />
-      <OAuthButtons onOAuth={handleOAuthLogin} />
+      <OAuthButtons href={env.apiBaseUrl + "/auth/google/login"} />
 
       <p className="text-center text-sm text-slate-500">
         Don&apos;t have an account?{" "}

@@ -8,20 +8,12 @@ import Button from "../ui/button/Button";
 import Alert from "../ui/alert/Alert";
 import Divider from "../ui/divider";
 import OAuthButtons from "./OAuthButtons";
+import { env } from "../../config/env";
 
 export default function SignupForm() {
   const navigate = useNavigate();
   const signup = useAuthStore((s) => s.signup);
-  const oauthLogin = useAuthStore((s) => s.oauthLogin);
-  const submittingError = useAuthStore((s) => s.submittingError);
-  const redirectTo = "/";
-  const handleOAuthLogin = async () => {
-    const data = await oauthLogin();
-    console.log("Oauth data", data);
-    if (data) {
-      navigate(redirectTo, { replace: true });
-    }
-  };
+
   const {
     values,
     errors,
@@ -48,7 +40,6 @@ export default function SignupForm() {
     <div className="space-y-6">
       <Form onSubmit={handleSubmit}>
         {submitError && <Alert variant="error">{submitError}</Alert>}
-        {submittingError && <Alert variant="error">{submittingError}</Alert>}
         <Form.Group
           controlId="signup-username"
           isInvalid={touched.username && Boolean(errors.username)}
@@ -125,7 +116,7 @@ export default function SignupForm() {
       </Form>
 
       <Divider label="or" />
-      <OAuthButtons onOAuth={handleOAuthLogin} />
+      <OAuthButtons href={env.apiBaseUrl + "/auth/google/login"} />
 
       <p className="text-center text-sm text-slate-500">
         Already have an account?{" "}
