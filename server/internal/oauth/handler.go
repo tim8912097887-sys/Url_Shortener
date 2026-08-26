@@ -103,7 +103,7 @@ func (h *Handler) setRefreshCookie(c fiber.Ctx, refreshToken string) {
 	c.Cookie(&fiber.Cookie{
 		Name:     "refresh_token",
 		Value:    refreshToken,
-		Path:     "/api/v1/users",
+		Path:     "/api/v1",
 		Expires:  time.Now().Add(jwttoken.RefreshTokenTTL),
 		MaxAge:   int(jwttoken.RefreshTokenTTL.Seconds()),
 		HTTPOnly: true,

@@ -20,7 +20,7 @@ const (
 	refreshCookieName = "refresh_token"
 	// Scope this to your auth router's mount path (e.g. "/api/auth") if you
 	// don't want the browser sending the refresh cookie on every request.
-	refreshCookiePath = "/"
+	refreshCookiePath = "/api/v1"
 )
 
 type UserService interface {
