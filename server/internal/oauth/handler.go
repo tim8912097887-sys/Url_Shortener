@@ -2,6 +2,7 @@ package oauth
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -90,10 +91,8 @@ func (h *Handler) GoogleCallback(c fiber.Ctx) {
 
     h.setRefreshCookie(c, tokenResponse.RefreshToken)
 
-	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]string{
-		"accessToken": tokenResponse.AccessToken,
-		"message":     "Successfully logged in",
-	})
+	redirectURL := fmt.Sprintf("%s/oauth-callback#access_token=%s", h.cfg.ClientOrigin, tokenResponse.AccessToken)
+    c.Redirect().Status(http.StatusTemporaryRedirect).To(redirectURL)
 }
 
 func (h *Handler) setRefreshCookie(c fiber.Ctx, refreshToken string) {
