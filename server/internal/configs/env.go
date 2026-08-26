@@ -44,8 +44,7 @@ func InitConfigs() (*Configs, error) {
         OAuthStateTTL:     getEnv("OAUTH_STATE_TTL", "5m"),
         
         CookieSecure:   getEnv("COOKIE_SECURE", "false") == "true",
-        CookieDomain:   getEnv("COOKIE_DOMAIN", "example.com"),
-        CookieSameSite: getEnv("COOKIE_SAME_SITE", "lax"),
+        CookieSameSite: getEnv("COOKIE_SAME_SITE", "none"),
     }, nil
 }
 
