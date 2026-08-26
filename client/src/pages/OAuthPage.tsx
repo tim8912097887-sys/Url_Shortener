@@ -9,8 +9,11 @@ export function OAuthPage() {
 
   useEffect(() => {
     // Extract access_token from URL hash fragment (#access_token=xyz)
-    const hashParams = new URLSearchParams(window.location.hash.substring(1));
-    const accessToken = hashParams.get("access_token");
+    const hash = window.location.hash;
+    const params = new URLSearchParams(
+      hash.startsWith("#") ? hash.slice(1) : hash,
+    );
+    const accessToken = params.get("access_token");
 
     if (accessToken) {
       setAccessToken(accessToken);
