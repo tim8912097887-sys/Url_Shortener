@@ -92,7 +92,11 @@ func (h *Handler) GoogleCallback(c fiber.Ctx) {
     h.setRefreshCookie(c, tokenResponse.RefreshToken)
 
 	redirectURL := fmt.Sprintf("%s/oauth-callback#access_token=%s", h.cfg.ClientOrigin, tokenResponse.AccessToken)
-    c.Redirect().Status(http.StatusTemporaryRedirect).To(redirectURL)
+   
+	// Prevent client caching on auth callback routes
+    c.Set("Cache-Control", "no-store, no-cache, must-revalidate, private")
+    c.Set("Pragma", "no-cache")
+	c.Redirect().Status(http.StatusSeeOther).To(redirectURL)
 }
 
 func (h *Handler) setRefreshCookie(c fiber.Ctx, refreshToken string) {
