@@ -93,8 +93,11 @@ Redis Cache
           │
           ▼
      Return Long URL
+```
+
 # 🏗️ Architecture
 
+```text
                     ┌─────────────────┐
                     │     Client      │
                     │ React + TS      │
@@ -117,61 +120,68 @@ Redis Cache
      │   PostgreSQL    │         │      Redis      │
      │      Neon       │         │     Upstash     │
      └─────────────────┘         └─────────────────┘
+```
 
 # 🔄 URL Redirect Flow
 
+```text
 User Request
-     │
-     ▼
+│
+▼
 Rate Limiter
-     │
-     ▼
+│
+▼
 Redis Lookup
-     │
-     ├── Cache Hit
-     │      │
-     │      ▼
-     │  Extend Cache TTL
-     │      │
-     │      ▼
-     │ Redirect User
-     │
-     └── Cache Miss
-            │
-            ▼
-        PostgreSQL
-            │
-            ├── Not Found / Expired
-            │
-            └── URL Found
-                   │
-                   ▼
-             Store in Redis
-                   │
-                   ▼
-              Redirect User
+│
+├── Cache Hit
+│ │
+│ ▼
+│ Extend Cache TTL
+│ │
+│ ▼
+│ Redirect User
+│
+└── Cache Miss
+│
+▼
+PostgreSQL
+│
+├── Not Found / Expired
+│
+└── URL Found
+│
+▼
+Store in Redis
+│
+▼
+Redirect User
+```
+
 # 🧠 Key Design Decisions
 
 ## Redis for Fast Redirects
+
 URL redirects are performance-sensitive because every redirect may require a database lookup.
 
 Redis reduces latency and database load by serving frequently accessed URLs directly from cache.
 
 ## Rolling TTL
+
 Instead of keeping every cached URL for a fixed duration regardless of usage, active URLs receive a TTL extension.
 
 Inactive URLs naturally expire from Redis, preventing cold URLs from consuming cache memory unnecessarily.
 
 ## Different User Policies
+
 Authenticated users receive longer expiration periods:
 
- - 30-day URL lifetime
- - 24-hour rolling cache extension
+- 30-day URL lifetime
+- 24-hour rolling cache extension
 
 Unauthenticated users use shorter durations:
 
- - 7-day URL lifetime
- - 15-minute rolling cache extension
+- 7-day URL lifetime
+- 15-minute rolling cache extension
 
 This provides a balance between user experience and infrastructure resource usage.
 
@@ -179,35 +189,36 @@ This provides a balance between user experience and infrastructure resource usag
 
 Using both token bucket and fixed-window strategies provides stronger protection than relying on a single algorithm.
 
- - Token bucket handles bursts.
- - Fixed window controls sustained traffic.
+- Token bucket handles bursts.
+- Fixed window controls sustained traffic.
 
 # 🌐 Production Deployment
 
+```text
 Vercel
-   │
-   │ HTTPS API Requests
-   ▼
+│
+│ HTTPS API Requests
+▼
 Render
-   │
-   ├──────────────► Neon PostgreSQL
-   │
-   └──────────────► Upstash Redis
+│
+├──────────────► Neon PostgreSQL
+│
+└──────────────► Upstash Redis
+```
 
 # 🎯 Project Goals
 
 This project demonstrates production-oriented full-stack development concepts:
 
- - Authentication and authorization
- - OAuth integration
- - Access and refresh token handling
- - Redis cache-aside pattern
- - Rolling cache expiration
- - URL lifecycle management
- - Rate limiting
- - Burst traffic handling
- - Distributed cloud deployment
- - Frontend state management
- - Client-side routing
- - Type-safe frontend development
-```
+- Authentication and authorization
+- OAuth integration
+- Access and refresh token handling
+- Redis cache-aside pattern
+- Rolling cache expiration
+- URL lifecycle management
+- Rate limiting
+- Burst traffic handling
+- Distributed cloud deployment
+- Frontend state management
+- Client-side routing
+- Type-safe frontend development
