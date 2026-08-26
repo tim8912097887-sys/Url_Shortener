@@ -63,6 +63,27 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	router.Post("/logout-all", middleware.AccessTokenMiddleware(h.tokens, h.logger), h.LogoutAll)
 }
 
+// Signup godoc
+//
+// @Summary Create user account
+// @Description Registers a new user account.
+// @Description
+// @Description For security, this endpoint returns the same successful response
+// @Description whether the email is newly registered or already exists.
+// @Description This prevents account enumeration.
+//
+// @Tags Users
+// @Accept json
+// @Produce json
+//
+// @Param request body userschema.SignupRequest true "Signup request"
+//
+// @Success 201 {object} userschema.SignupResponse
+//
+// @Failure 400 {object} envelope.ErrorResponse "Invalid request"
+// @Failure 500 {object} envelope.ErrorResponse "Internal server error"
+//
+// @Router /users/signup [post]
 func (h *Handler) Signup(c fiber.Ctx) {
 	// Validate input
 	validatedInput, err := validation.BindAndValidate[userschema.SignupRequest](c)
@@ -86,11 +107,34 @@ func (h *Handler) Signup(c fiber.Ctx) {
 
 	// Same success response whether or not the email was already registered —
 	// signup can never be used to enumerate existing accounts.
-	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]string{
-		"message": "Successfully signed up",
+	writeresponse.SuccessJson(c, fiber.StatusCreated, userschema.SignupResponse{
+		Message: "Successfully signed up",
 	})
 }
 
+// Login godoc
+//
+// @Summary Login
+// @Description Authenticates a user with email and password.
+// @Description
+// @Description Returns a short-lived access token in the response body.
+// @Description A refresh token is stored in an HttpOnly Secure cookie.
+// @Description
+// @Description For security, invalid email and invalid password return the same error.
+//
+// @Tags Users
+// @Accept json
+// @Produce json
+//
+// @Param request body userschema.LoginRequest true "Login credentials"
+//
+// @Success 200 {object} userschema.LoginResponse
+//
+// @Failure 400 {object} envelope.ErrorResponse "Invalid request"
+// @Failure 401 {object} envelope.ErrorResponse "Invalid credentials"
+// @Failure 500 {object} envelope.ErrorResponse "Internal server error"
+//
+// @Router /users/login [post]
 func (h *Handler) Login(c fiber.Ctx) {
 	// Validate input
 	validatedInput, err := validation.BindAndValidate[userschema.LoginRequest](c)
@@ -112,12 +156,31 @@ func (h *Handler) Login(c fiber.Ctx) {
 
 	h.setRefreshCookie(c, refreshToken)
 
-	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]string{
-		"accessToken": accessToken,
-		"message":     "Successfully logged in",
+	writeresponse.SuccessJson(c, fiber.StatusOK, userschema.LoginResponse{
+		AccessToken: accessToken,
+		Message:     "Successfully logged in",
 	})
 }
 
+// Refresh godoc
+//
+// @Summary Refresh access token
+// @Description Issues a new access token using the refresh_token HttpOnly cookie.
+// @Description
+// @Description The refresh token is rotated after a successful refresh.
+// @Description The new refresh token is returned as a replacement HttpOnly Secure cookie.
+// @Description
+// @Description Clients should call this endpoint when the access token expires.
+//
+// @Tags Users
+// @Produce json
+//
+// @Success 200 {object} userschema.RefreshResponse
+//
+// @Failure 401 {object} envelope.ErrorResponse "Missing, expired, or invalid refresh token"
+// @Failure 500 {object} envelope.ErrorResponse "Internal server error"
+//
+// @Router /users/refresh [post]
 func (h *Handler) Refresh(c fiber.Ctx) {
 	userID, tokenVersion, ok := h.authFromLocals(c)
 	if !ok {
@@ -134,14 +197,30 @@ func (h *Handler) Refresh(c fiber.Ctx) {
 
 	h.setRefreshCookie(c, newRefreshToken)
 
-	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]string{
-		"accessToken": newAccessToken,
-		"message":     "Successfully refreshed token",
+	writeresponse.SuccessJson(c, fiber.StatusOK, userschema.RefreshResponse{
+		AccessToken: newAccessToken,
+		Message:     "Successfully refreshed access token",
 	})
 }
 
-// Logout requires AuthMiddleware to have already validated the bearer access
-// token and populated Locals with the user id and token version.
+// Logout godoc
+//
+// @Summary Logout current device
+// @Description Clears the refresh token cookie from the current browser.
+// @Description
+// @Description This endpoint does not invalidate all tokens server-side.
+// @Description Use Logout All Sessions to invalidate tokens across devices.
+//
+// @Tags Users
+// @Produce json
+// @Security BearerAuth
+//
+// @Success 200 {object} userschema.LogoutResponse
+//
+// @Failure 401 {object} envelope.ErrorResponse "Missing or invalid access token"
+// @Failure 500 {object} envelope.ErrorResponse "Internal server error"
+//
+// @Router /users/logout [post]
 func (h *Handler) Logout(c fiber.Ctx) {
 	userID, tokenVersion, ok := h.authFromLocals(c)
 	if !ok {
@@ -158,12 +237,29 @@ func (h *Handler) Logout(c fiber.Ctx) {
 
 	h.clearRefreshCookie(c)
 
-	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]string{
-		"message": "Successfully logged out",
+	writeresponse.SuccessJson(c, fiber.StatusOK, userschema.LogoutResponse{
+		Message: "Successfully logged out",
 	})
 }
 
-// LogoutAll requires AuthMiddleware, same as Logout.
+// LogoutAll godoc
+//
+// @Summary Logout all sessions
+// @Description Invalidates all active access and refresh tokens for the user.
+// @Description
+// @Description The user's token version is incremented, causing previously issued
+// @Description access and refresh tokens to become invalid.
+//
+// @Tags Users
+// @Produce json
+// @Security BearerAuth
+//
+// @Success 200 {object} userschema.LogoutAllResponse
+//
+// @Failure 401 {object} envelope.ErrorResponse "Missing or invalid access token"
+// @Failure 500 {object} envelope.ErrorResponse "Internal server error"
+//
+// @Router /users/logout-all [post]
 func (h *Handler) LogoutAll(c fiber.Ctx) {
 	userID, tokenVersion, ok := h.authFromLocals(c)
 	if !ok {
@@ -180,8 +276,8 @@ func (h *Handler) LogoutAll(c fiber.Ctx) {
 
 	h.clearRefreshCookie(c)
 
-	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]string{
-		"message": "Successfully logged out all",
+	writeresponse.SuccessJson(c, fiber.StatusOK, userschema.LogoutAllResponse{
+		Message: "Successfully logged out all sessions",
 	})
 }
 

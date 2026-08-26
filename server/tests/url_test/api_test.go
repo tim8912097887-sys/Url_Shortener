@@ -86,7 +86,7 @@ func TestShortenURL(t *testing.T) {
 
 	t.Run("creates authenticated URL with long expiry", func(t *testing.T) {
 		
-		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
+		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusCreated {
 			t.Fatalf("signup: got %d", response.StatusCode)
 		}
 	
@@ -108,7 +108,7 @@ func TestShortenURL(t *testing.T) {
 
 	t.Run("returns existing authenticated URL for duplicate long URL", func(t *testing.T) {
 		
-		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
+		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusCreated {
 			t.Fatalf("signup: got %d", response.StatusCode)
 		}
 		accessToken, _, response := helper.LoginUser(t, app, "alice@example.com", "password1")
@@ -216,14 +216,14 @@ func TestGetURLsForUser(t *testing.T) {
 
 	t.Run("returns only active URLs owned by the authenticated user", func(t *testing.T) {
 		
-		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
+		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusCreated {
 			t.Fatalf("alice signup: got %d", response.StatusCode)
 		}
 		aliceToken, _, response := helper.LoginUser(t, app, "alice@example.com", "password1")
 		if response.StatusCode != http.StatusOK {
 			t.Fatalf("alice login: got %d", response.StatusCode)
 		}
-		if response := helper.SignupUser(t, app, "bob", "bob@example.com", "password1"); response.StatusCode != http.StatusOK {
+		if response := helper.SignupUser(t, app, "bob", "bob@example.com", "password1"); response.StatusCode != http.StatusCreated {
 			t.Fatalf("bob signup: got %d", response.StatusCode)
 		}
 		bobToken, _, response := helper.LoginUser(t, app, "bob@example.com", "password1")
@@ -254,7 +254,7 @@ func TestGetURLsForUser(t *testing.T) {
 
 	t.Run("returns an empty list for a user without URLs", func(t *testing.T) {
 		
-		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
+		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusCreated {
 			t.Fatalf("signup: got %d", response.StatusCode)
 		}
 		accessToken, _, response := helper.LoginUser(t, app, "alice@example.com", "password1")

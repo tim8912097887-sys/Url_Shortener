@@ -45,6 +45,28 @@ func (h *Handler) RegisterRoutes(router fiber.Router) {
 	 router.Get("/", middleware.AccessTokenMiddleware(h.tokens, h.logger),h.GetUrlsForUser)
 }
 
+// ShortenUrl godoc
+//
+// @Summary Create a shortened URL
+// @Description Creates a shortened URL.
+// @Description
+// @Description The URL expiration depends on authentication status:
+// @Description - Authenticated users: longer expiration period.
+// @Description - Anonymous users: shorter expiration period.
+// @Description
+// @Tags URLs
+// @Accept json
+// @Produce json
+//
+// @Param request body url.CreateUrlSchema true "URL to shorten"
+//
+// @Success 200 {object} urlschema.ShortenUrlResponse
+//
+// @Failure 400 {object} envelope.ErrorResponse "Invalid request body or URL"
+// @Failure 429 {object} envelope.ErrorResponse "Rate limit exceeded"
+// @Failure 500 {object} envelope.ErrorResponse "Internal server error"
+//
+// @Router /urls [post]
 func (h *Handler) ShortenUrl(c fiber.Ctx) {
 	// Validate input
 	validatedInput, err := BindAndValidate[CreateUrlSchema](c)
@@ -64,9 +86,33 @@ func (h *Handler) ShortenUrl(c fiber.Ctx) {
 		return
 	}
 
-	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]string{"shortUrl": shortUrl, "message": "Successfully shorten url"})
+	writeresponse.SuccessJson(c, fiber.StatusOK, urlschema.ShortenUrlResponse{ShortUrl: shortUrl, Message: "Successfully shorten url"})
 }
 
+// GetUrl godoc
+//
+// @Summary Resolve a shortened URL
+// @Description Resolves a shortened URL and redirects the client to the original destination.
+// @Description
+// @Description The endpoint uses a cache-aside strategy:
+// @Description 1. Redis cache is checked first.
+// @Description 2. On cache miss, the URL is loaded from PostgreSQL.
+// @Description 3. The result is cached with a TTL that never exceeds the URL expiration time.
+// @Description
+// @Description Expired URLs are treated as not found.
+//
+// @Tags URLs
+// @Produce json
+//
+// @Param short_url path string true "Short URL code" example(abc12345)
+//
+// @Success 307 "Temporary Redirect"
+//
+// @Failure 400 {object} envelope.ErrorResponse "Invalid short URL"
+// @Failure 404 {object} envelope.ErrorResponse "URL not found or expired"
+// @Failure 500 {object} envelope.ErrorResponse "Internal server error"
+//
+// @Router /urls/{short_url} [get]
 func (h *Handler) GetUrl(c fiber.Ctx) {
 	// Validate params
 	validatedParams, err := Validate(GetUrlParams{ShortURL: c.Params("short_url")})
@@ -89,6 +135,23 @@ func (h *Handler) GetUrl(c fiber.Ctx) {
 	c.Redirect().Status(fiber.StatusTemporaryRedirect).To(longUrl)
 }
 
+// GetUrlsForUser godoc
+//
+// @Summary Get current user's shortened URLs
+// @Description Returns all shortened URLs owned by the authenticated user.
+// @Description
+// @Description Only URLs created by the current authenticated user are returned.
+//
+// @Tags URLs
+// @Produce json
+// @Security BearerAuth
+//
+// @Success 200 {object} urlschema.GetUrlsResponse
+//
+// @Failure 401 {object} envelope.ErrorResponse "Missing or invalid access token"
+// @Failure 500 {object} envelope.ErrorResponse "Internal server error"
+//
+// @Router /urls [get]
 func (h *Handler) GetUrlsForUser(c fiber.Ctx) {
 	// Get user id from fiber context locals
 	authContext := h.authFromLocals(c)
@@ -105,7 +168,7 @@ func (h *Handler) GetUrlsForUser(c fiber.Ctx) {
 		return
 	}
 
-	writeresponse.SuccessJson(c, fiber.StatusOK, map[string]interface{}{"urls": urls, "message": "Successfully get urls for user"})
+	writeresponse.SuccessJson(c, fiber.StatusOK, urlschema.GetUrlsResponse{Urls: urls, Message: "Successfully get urls for user"})
 }
 
 func (h *Handler) authFromLocals(c fiber.Ctx) urlschema.AuthContext {

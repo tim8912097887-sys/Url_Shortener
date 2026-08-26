@@ -64,8 +64,8 @@ func TestSignupEndpoint(t *testing.T) {
 		{"missing username", map[string]string{"email": "a@example.com", "password": "password1"}, http.StatusBadRequest, "INVALID_INPUT", false},
 		{"invalid email", userschema.SignupRequest{Username: "alice", Email: "bad", Password: "password1"}, http.StatusBadRequest, "INVALID_INPUT", false},
 		{"short password", userschema.SignupRequest{Username: "alice", Email: "a@example.com", Password: "short"}, http.StatusBadRequest, "INVALID_INPUT", false},
-		{"valid signup", userschema.SignupRequest{Username: "alice", Email: "a@example.com", Password: "password1"}, http.StatusOK, "", true},
-		{"duplicate email is idempotent", userschema.SignupRequest{Username: "other", Email: "a@example.com", Password: "password1"}, http.StatusOK, "", true},
+		{"valid signup", userschema.SignupRequest{Username: "alice", Email: "a@example.com", Password: "password1"}, http.StatusCreated, "", true},
+		{"duplicate email is idempotent", userschema.SignupRequest{Username: "other", Email: "a@example.com", Password: "password1"}, http.StatusCreated, "", true},
 	}
 
 	for _, test := range cases {
@@ -111,7 +111,7 @@ func TestLoginEndpoint(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			
-			if response := signup(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
+			if response := signup(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusCreated {
 				t.Fatalf("seed signup: got %d", response.StatusCode)
 			}
 			_, _, response := login(t, app, test.email, test.password)
@@ -142,7 +142,7 @@ func TestRefreshEndpoint(t *testing.T) {
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
 			
-			if response := signup(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
+			if response := signup(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusCreated {
 				t.Fatalf("seed signup: got %d", response.StatusCode)
 			}
 			_, refresh, response := login(t, app, "alice@example.com", "password1")
@@ -170,7 +170,7 @@ func TestRefreshEndpoint(t *testing.T) {
 
 	t.Run("revoked refresh token", func(t *testing.T) {
 	
-		if response := signup(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
+		if response := signup(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusCreated {
 			t.Fatalf("seed signup: got %d", response.StatusCode)
 		}
 		access, refresh, response := login(t, app, "alice@example.com", "password1")
@@ -194,7 +194,7 @@ func TestLogoutEndpoints(t *testing.T) {
 	for _, endpoint := range []string{"logout", "logout-all"} {
 		t.Run(endpoint, func(t *testing.T) {
 			
-			if response := signup(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusOK {
+			if response := signup(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusCreated {
 				t.Fatalf("seed signup: got %d", response.StatusCode)
 			}
 			access, _, response := login(t, app, "alice@example.com", "password1")
