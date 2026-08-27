@@ -1,8 +1,7 @@
 // Best-effort, non-verifying decode of a JWT's payload, used only to hydrate
 // a display-friendly "user" object (e.g. email/username) on the client.
 // The server remains the source of truth for authorization; nothing here is
-
-import type { TokenResponse } from "../services/types";
+import { type TokenResponse } from "../api/types/auth.types";
 
 // trusted for access-control decisions.
 export function decodeAccessToken(token: string | null) {
