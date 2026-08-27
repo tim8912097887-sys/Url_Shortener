@@ -3,15 +3,8 @@ import { devtools } from "zustand/middleware";
 import { decodeAccessToken, extractAccessToken } from "../utils/jwt";
 import type { SignupSchemaType } from "../schema/signup";
 import type { LoginSchemaType } from "../schema/login";
-import {
-  loginRequest,
-  logoutAllRequest,
-  logoutRequest,
-  refreshRequest,
-  signupRequest,
-} from "../services/auth.services";
-import { ApiError } from "../api/error";
-import { type TokenResponseData } from "../services/types";
+import { authService } from "../api/services/auth.services";
+import type { ApiError } from "../api/errors/api-error";
 
 type AuthStore = {
   accessToken: string | null;
@@ -42,7 +35,7 @@ const initialState = {
 
 export const useAuthStore = create<AuthStore>()(
   devtools(
-    (set, get) => ({
+    (set, _) => ({
       ...initialState,
 
       clearError: () => set({ error: null }),
@@ -73,7 +66,7 @@ export const useAuthStore = create<AuthStore>()(
       // a 401 here just means "not logged in," not an error to surface.
       initializeAuth: async () => {
         try {
-          const data = await refreshRequest<TokenResponseData>();
+          const data = await authService.refresh();
           const accessToken = extractAccessToken(data);
           if (!accessToken)
             throw new Error("No access token in refresh response");
@@ -90,7 +83,7 @@ export const useAuthStore = create<AuthStore>()(
 
       signup: async (payload) => {
         try {
-          const data = await signupRequest(payload);
+          const data = await authService.signup(payload);
           return data;
         } catch (err: ApiError | any) {
           throw new Error(err.message || "An unexpected error occurred");
@@ -99,7 +92,7 @@ export const useAuthStore = create<AuthStore>()(
 
       login: async (payload) => {
         try {
-          const data = await loginRequest<TokenResponseData>(payload);
+          const data = await authService.login(payload);
           const accessToken = extractAccessToken(data);
           set({
             accessToken,
@@ -114,9 +107,7 @@ export const useAuthStore = create<AuthStore>()(
 
       logout: async () => {
         try {
-          const accessToken = get().accessToken;
-          if (!accessToken) return;
-          await logoutRequest(accessToken);
+          await authService.logout();
         } finally {
           set({ ...initialState, isInitializing: false });
         }
@@ -124,9 +115,7 @@ export const useAuthStore = create<AuthStore>()(
 
       logoutAll: async () => {
         try {
-          const accessToken = get().accessToken;
-          if (!accessToken) return;
-          await logoutAllRequest(accessToken);
+          await authService.logoutAll();
         } finally {
           set({ ...initialState, isInitializing: false });
         }

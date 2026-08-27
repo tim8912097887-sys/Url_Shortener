@@ -1,9 +1,8 @@
-import type { ApiError } from "../../api/error";
+import type { ApiError } from "../../api/errors/api-error";
+import { urlService } from "../../api/services/url.service";
 import { env } from "../../config/env";
 import { useForm } from "../../hooks/useForm";
 import { urlSchema, type UrlSchemaType } from "../../schema/url";
-import type { ShortenData } from "../../services/types";
-import { shortenUrlRequest } from "../../services/url.service";
 import { ValidateInput } from "../../utils/validation";
 import Alert from "../ui/alert";
 import Button from "../ui/button";
@@ -16,7 +15,7 @@ type UrlCardProps = {
 const UrlCard = ({ setShortUrl }: UrlCardProps) => {
   const shortenUrl = async (payload: UrlSchemaType) => {
     try {
-      const response = await shortenUrlRequest<ShortenData>(payload);
+      const response = await urlService.shortenUrl(payload);
       return response;
     } catch (error: ApiError | any) {
       throw new Error(error.message || "An unexpected error occurred");
