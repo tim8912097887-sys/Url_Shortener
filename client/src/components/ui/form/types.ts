@@ -1,19 +1,19 @@
-import {
-  type ComponentPropsWithoutRef,
-  type ElementType,
-  type FormHTMLAttributes,
-  type ReactNode,
+import type {
+  ComponentPropsWithoutRef,
+  ElementType,
+  FormHTMLAttributes,
+  ReactNode,
 } from "react";
 
 export type FormProps = {
-  className?: string;
-  children: ReactNode;
-  noValidate?: boolean;
+  children?: ReactNode;
 } & FormHTMLAttributes<HTMLFormElement>;
 
 export type FormGroupContextType = {
   controlId?: string;
   isInvalid: boolean;
+  feedbackId?: string;
+  textId?: string;
 };
 
 export type FormGroupProps = {
@@ -28,8 +28,7 @@ export type FormLabelProps = ComponentPropsWithoutRef<"label">;
 export type FormControlProps<T extends ElementType = "input"> = {
   as?: T;
   isInvalid?: boolean;
-  className?: string;
-} & Omit<ComponentPropsWithoutRef<T>, "as" | "className">;
+} & Omit<ComponentPropsWithoutRef<T>, "as">;
 
 export type FormFeedbackProps = {
   type?: "invalid" | "valid";

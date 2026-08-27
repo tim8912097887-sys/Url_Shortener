@@ -2,12 +2,12 @@ import { useState } from "react";
 import { useNavigate } from "react-router";
 import Button from "../ui/button/Button";
 import { useAuthStore } from "../../store/useAuthStore";
-import type { SIZES, VARIANTS } from "../ui/button/types";
+import type { BUTTON_SIZES, BUTTON_VARIANTS } from "../ui/button/types";
 
 type LogoutButtonProps = {
   allDevices?: boolean;
-  variant?: keyof typeof VARIANTS;
-  size?: keyof typeof SIZES;
+  variant?: keyof typeof BUTTON_VARIANTS;
+  size?: keyof typeof BUTTON_SIZES;
   className?: string;
   children?: React.ReactNode;
 };
