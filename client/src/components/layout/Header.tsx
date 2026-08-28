@@ -1,10 +1,12 @@
 import { Link } from "react-router";
-import LogoutButton from "../auth/LogoutButton";
 import { useAuthStore } from "../../store/useAuthStore";
+import LogoutMenu from "../auth/LogoutMenu";
 
 export default function Header() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
   const user = useAuthStore((s) => s.user);
+  const logout = useAuthStore((s) => s.logout);
+  const logoutAll = useAuthStore((s) => s.logoutAll);
 
   return (
     <header className="border-b border-slate-200 bg-white">
@@ -21,7 +23,7 @@ export default function Header() {
             <span className="hidden text-sm text-slate-500 sm:inline">
               {user?.email ?? user?.username ?? "Signed in"}
             </span>
-            <LogoutButton />
+            <LogoutMenu onLogout={logout} onLogoutAll={logoutAll} />
           </div>
         ) : (
           <nav className="flex items-center gap-2">
