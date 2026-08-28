@@ -67,7 +67,7 @@ func NewApi(apiConfig ApiConfig) *Api {
 // @in cookie
 // @name refresh_token
 // @description HttpOnly refresh token cookie automatically sent by the browser.
-func (a *Api) Mount(pool *pgxpool.Pool,cache *redis.Client) http.Handler {
+func (a *Api) Mount(pool *pgxpool.Pool,cache *redis.Client, ctx context.Context) http.Handler {
 	app := fiber.New()
 
 	// Swagger
@@ -93,10 +93,17 @@ func (a *Api) Mount(pool *pgxpool.Pool,cache *redis.Client) http.Handler {
 	// Rate Limiting
     rateLimiter := ratelimiter.NewRateLimiter(20, 10)
 	urlGroup.Use(middleware.RateLimitMiddleware(rateLimiter))
+
+    // Register user handler
+    userRepository := user.NewRepository(pool)
+	userService := user.NewService(&user.ServiceConfig{Repository: userRepository, Tokens: *tokenManager, Logger: a.apiConfig.Logger})
+	userHandler := user.NewHandler(user.HandlerConfig{Logger: a.apiConfig.Logger, Service: userService, Tokens: *tokenManager, Cfg: a.apiConfig.Cfg})
+	userHandler.RegisterRoutes(userGroup)
+	
 	// Register Url handler
 	urlCache := url.NewCache(cache)
 	urlRepository := url.NewRepository(pool)
-	urlService := url.NewService(&url.ServiceConfig{Repository: urlRepository, Cache: urlCache, Logger: a.apiConfig.Logger})
+	urlService := url.NewService(&url.ServiceConfig{UrlRepository: urlRepository, UserRepository: userRepository, Cache: urlCache, Logger: a.apiConfig.Logger})
 	urlHandler := url.NewHandler(url.HandlerConfig{
 		Logger:  a.apiConfig.Logger,
 		Service: urlService,
@@ -106,12 +113,6 @@ func (a *Api) Mount(pool *pgxpool.Pool,cache *redis.Client) http.Handler {
 	app.Get("/health", func(c fiber.Ctx) error {
 		return c.SendString("OK")
 	})
-
-	// Register user handler
-    userRepository := user.NewRepository(pool)
-	userService := user.NewService(&user.ServiceConfig{Repository: userRepository, Tokens: *tokenManager, Logger: a.apiConfig.Logger})
-	userHandler := user.NewHandler(user.HandlerConfig{Logger: a.apiConfig.Logger, Service: userService, Tokens: *tokenManager, Cfg: a.apiConfig.Cfg})
-	userHandler.RegisterRoutes(userGroup)
 
 	// Register oauth handler
 	oauthCofig := oauth.New(oauth.Config{
@@ -129,6 +130,17 @@ func (a *Api) Mount(pool *pgxpool.Pool,cache *redis.Client) http.Handler {
 	})
 	oauthHandler := oauth.NewHandler(oauth.HandlerConfig{Logger: a.apiConfig.Logger, Service: oauthService, Cfg: a.apiConfig.Cfg})
 	oauthHandler.RegisterRoutes(authGroup)
+
+	clickSyncWorker := url.NewClickSyncWorker(url.ClickSyncWorkerConfig{
+		Repository: urlRepository,
+		Cache: urlCache,
+		Logger: a.apiConfig.Logger,
+	})
+	// Run Click Sync Worker
+	go func() {
+		a.apiConfig.Logger.Info("starting click sync worker")
+		clickSyncWorker.Run(ctx)	
+	}()
 
 	return adaptor.FiberApp(app)
 }

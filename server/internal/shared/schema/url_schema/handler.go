@@ -2,6 +2,7 @@ package urlschema
 
 type AuthContext struct {
 	UserID          string
+	TokenVersion    int
 	IsAuthenticated bool
 }
 

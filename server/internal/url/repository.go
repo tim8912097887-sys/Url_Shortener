@@ -104,7 +104,7 @@ func (r *repository) CreateShortenUrl(
 
 func (r *repository) GetUrlsForUser(ctx context.Context, userId string) ([]urlschema.GetUrlsRepositoryResponse, error) {
 	var urls []urlschema.GetUrlsRepositoryResponse
-	sql := `SELECT short_url, long_url, expired_at FROM urls_map WHERE user_id = $1 AND expired_at > NOW();`
+	sql := `SELECT short_url, long_url, clicks, expired_at FROM urls_map WHERE user_id = $1 AND expired_at > NOW();`
 	row, err := r.pool.Query(ctx, sql, userId)
 	
 	if err != nil {
@@ -113,10 +113,16 @@ func (r *repository) GetUrlsForUser(ctx context.Context, userId string) ([]urlsc
 	
 	for row.Next() {
 		var url urlschema.GetUrlsRepositoryResponse
-		if err := row.Scan(&url.ShortUrl, &url.LongUrl, &url.ExpiredAt); err != nil {
+		if err := row.Scan(&url.ShortUrl, &url.LongUrl, &url.Clicks, &url.ExpiredAt); err != nil {
 			return nil, err
 		}
 		urls = append(urls, url)
 	}
 	return urls, nil
+}
+
+func (r *repository) UpdateUrlClicks(ctx context.Context, shortUrl string, clicks int) error {
+	sql := `UPDATE urls_map SET clicks = clicks + $1 WHERE short_url = $2;`
+	_, err := r.pool.Exec(ctx, sql, clicks, shortUrl)
+	return err
 }

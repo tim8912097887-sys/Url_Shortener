@@ -68,7 +68,7 @@ func main() {
 		Logger: logger,
 	})
 
-	if err := app.Run(ctx, app.Mount(pool,cache), 8*time.Second); err != nil {
+	if err := app.Run(ctx, app.Mount(pool, cache, ctx), 8*time.Second); err != nil {
 		logger.Error("failed to start server", slog.Any("error", err))
 		os.Exit(1)
 	}

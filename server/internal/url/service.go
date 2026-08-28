@@ -11,40 +11,24 @@ import (
 	urlschema "github.com/tim8912097887-sys/url-shortener/internal/shared/schema/url_schema"
 )
 
-const (
-	UnauthURLExpiry = 7 * 24 * time.Hour
-	AuthURLExpiry   = 30 * 24 * time.Hour
-
-	UnauthCacheTTL = 15 * time.Minute
-	AuthCacheTTL   = 24 * time.Hour
-)
-
-type UrlRepository interface {
-	GetLongUrl(ctx context.Context, shortUrl string) (string, time.Time, error)
-	CreateShortenUrl(ctx context.Context, longUrl string, shortUrl string, userId *string, expiredAt time.Time) (string, error)
-    GetUrlsForUser(ctx context.Context, userId string) ([]urlschema.GetUrlsRepositoryResponse, error)
-}
-
-type UrlCache interface {
-	Set(ctx context.Context, key string, value any, expiration time.Duration) error
-	Get(ctx context.Context, key string) (string, error)
-}
-
 type ServiceConfig struct {
-	Repository UrlRepository
+	UrlRepository UrlRepository
+	UserRepository UserRepository
 	Cache      UrlCache
 	Logger     *slog.Logger
 }
 
 type service struct {
-	repository UrlRepository
+	urlRepository UrlRepository
+	userRepository UserRepository
 	cache      UrlCache
 	logger     *slog.Logger
 }
 
 func NewService(serviceConfig *ServiceConfig) *service {
 	return &service{
-		repository: serviceConfig.Repository,
+		urlRepository: serviceConfig.UrlRepository,
+		userRepository: serviceConfig.UserRepository,
 		cache:      serviceConfig.Cache,
 		logger:     serviceConfig.Logger,
 	}
@@ -54,6 +38,13 @@ func (s *service) ShortenUrl(ctx context.Context, url string, authContext urlsch
 
 	var shortUrl string
 	var err error
+	var userId *string
+	isUserValid := s.checkUserValid(ctx, authContext.UserID, authContext.TokenVersion)
+	if isUserValid {
+		userId = &authContext.UserID
+	} else {
+		userId = nil
+	}
 	// Retry on short url collision,and update short url when exists
 	for {
 
@@ -65,14 +56,7 @@ func (s *service) ShortenUrl(ctx context.Context, url string, authContext urlsch
 
 		expiredAt := time.Now().Add(urlExpiry(authContext))
 
-		var userId *string
-		if authContext.IsAuthenticated {
-			userId = &authContext.UserID
-		} else {
-			userId = nil
-		}
-
-		if shortUrl, err = s.repository.CreateShortenUrl(ctx, url, shortUrl, userId, expiredAt); err != nil {
+		if shortUrl, err = s.urlRepository.CreateShortenUrl(ctx, url, shortUrl, userId, expiredAt); err != nil {
 			// Only retry on short url collision
 			if errors.Is(err, urlerror.ErrShortURLCollision) {
 				continue
@@ -92,17 +76,26 @@ func (s *service) GetUrl(ctx context.Context, shortUrl string, authContext urlsc
 	var remainingTime time.Time
 
 	// Read from cache
-	if longUrl, err = s.cache.Get(ctx,urlCacheKey(shortUrl)); (err != nil && err != redis.Nil) {
+	if longUrl, err = s.cache.Get(ctx,UrlCacheKey(shortUrl)); (err != nil && err != redis.Nil) {
 		s.logger.Error("failed to get cache",slog.Any("error", err))
 	}
 
 	// Cache hit
 	if err == nil && longUrl != "" {
 		s.logger.Info("cache hit",slog.String("shortUrl", shortUrl))
+		// Increment cache hit counter
+		if _, err = s.cache.Increment(ctx, UrlClickKey(shortUrl)); err != nil {
+			s.logger.Error("failed to increment cache hit counter",slog.Any("error", err))
+		}	
+
+		if err = s.cache.AddPendingClick(ctx, shortUrl); err != nil {
+			s.logger.Error("failed to add pending click",slog.Any("error", err))
+		}
+		
 		return longUrl, nil
 	}
 
-	if longUrl, remainingTime, err = s.repository.GetLongUrl(ctx, shortUrl); err != nil {
+	if longUrl, remainingTime, err = s.urlRepository.GetLongUrl(ctx, shortUrl); err != nil {
 		if err == urlerror.ErrUrlNotFound {
 			return "", urlerror.ErrUrlNotFound
 		}
@@ -115,10 +108,16 @@ func (s *service) GetUrl(ctx context.Context, shortUrl string, authContext urlsc
 		return "", urlerror.ErrUrlNotFound
 	}
 
+	// Check if user is valid
+	isUserValid := s.checkUserValid(ctx, authContext.UserID, authContext.TokenVersion)
+	if !isUserValid {
+		authContext.IsAuthenticated = false
+	}
+
 	actualCacheTTL := min(cacheTTL(authContext), timeUntilExpiry)
 
 	// Cache aside
-	if err = s.cache.Set(ctx, urlCacheKey(shortUrl), longUrl, actualCacheTTL); err != nil {
+	if err = s.cache.Set(ctx, UrlCacheKey(shortUrl), longUrl, actualCacheTTL); err != nil {
 		s.logger.Error("failed to set cache",slog.Any("error", err))
 	}
 
@@ -126,7 +125,7 @@ func (s *service) GetUrl(ctx context.Context, shortUrl string, authContext urlsc
 }
 
 func (s *service) GetUrlsForUser(ctx context.Context, userId string) ([]urlschema.GetUrlsServiceResponse, error) {
-	urls, err := s.repository.GetUrlsForUser(ctx, userId)
+	urls, err := s.urlRepository.GetUrlsForUser(ctx, userId)
     
 	if err != nil {
 		return nil, err
@@ -137,6 +136,7 @@ func (s *service) GetUrlsForUser(ctx context.Context, userId string) ([]urlschem
 		response = append(response, urlschema.GetUrlsServiceResponse{
 			ShortUrl:  url.ShortUrl,
 			LongUrl:   url.LongUrl,
+			Clicks:    url.Clicks,
 			ExpiredAt: url.ExpiredAt,
 		})
 	}
@@ -144,8 +144,13 @@ func (s *service) GetUrlsForUser(ctx context.Context, userId string) ([]urlschem
 	return response, nil
 }
 
-func urlCacheKey(short string) string {
-    return "url:" + short
+func (s *service) checkUserValid(ctx context.Context, userId string, tokenVersion int) bool {
+	existUser, err := s.userRepository.GetUserByID(ctx, userId)
+    if err != nil {
+		return false
+	}
+
+	return existUser.TokenVersion == tokenVersion
 }
 
 func urlExpiry(auth urlschema.AuthContext) time.Duration {

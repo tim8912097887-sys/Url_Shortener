@@ -20,3 +20,11 @@ func GenerateCode(length int) (string, error) {
 
 	return string(b), nil
 }
+
+func UrlCacheKey(short string) string {
+    return "url:" + short
+}
+
+func UrlClickKey(short string) string {
+	return "url:" + short + ":clicks"
+}
