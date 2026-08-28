@@ -19,6 +19,7 @@ type AuthStore = {
   login: (payload: LoginSchemaType) => Promise<any>;
   logout: () => Promise<void>;
   logoutAll: () => Promise<void>;
+  isLoading: boolean;
   signup: (payload: SignupSchemaType) => Promise<any>;
 };
 
@@ -31,6 +32,7 @@ const initialState = {
   // already-logged-in user to /login on a hard page reload.
   isInitializing: true,
   error: null,
+  isLoading: false,
 };
 
 export const useAuthStore = create<AuthStore>()(
@@ -106,6 +108,7 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logout: async () => {
+        set({ isInitializing: true });
         try {
           await authService.logout();
         } finally {
@@ -114,6 +117,7 @@ export const useAuthStore = create<AuthStore>()(
       },
 
       logoutAll: async () => {
+        set({ isInitializing: true });
         try {
           await authService.logoutAll();
         } finally {
