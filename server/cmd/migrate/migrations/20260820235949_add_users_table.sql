@@ -4,7 +4,7 @@ CREATE TABLE users (
     username VARCHAR(30) NOT NULL,
     email VARCHAR(255) NOT NULL UNIQUE,
     password_hash TEXT,
-    token_version INT NOT NULL DEFAULT 0,
+    token_version INT NOT NULL DEFAULT 1,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

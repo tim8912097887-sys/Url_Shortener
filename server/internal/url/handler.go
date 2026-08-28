@@ -1,7 +1,6 @@
 package url
 
 import (
-	"context"
 	"log/slog"
 
 	"github.com/gofiber/fiber/v3"
@@ -12,12 +11,6 @@ import (
 	urlschema "github.com/tim8912097887-sys/url-shortener/internal/shared/schema/url_schema"
 	jwttoken "github.com/tim8912097887-sys/url-shortener/internal/shared/util/jwt_token"
 )
-
-type UrlService interface {
-	ShortenUrl(ctx context.Context, url string, authContext urlschema.AuthContext) (string, error)
-	GetUrl(ctx context.Context, shortUrl string, authContext urlschema.AuthContext) (string, error)
-    GetUrlsForUser(ctx context.Context, userId string) ([]urlschema.GetUrlsServiceResponse, error)
-}
 
 type HandlerConfig struct {
 	Logger  *slog.Logger
@@ -176,13 +169,23 @@ func (h *Handler) authFromLocals(c fiber.Ctx) urlschema.AuthContext {
 	if !ok || userID == "" {
 		return urlschema.AuthContext{
 			UserID:          "",
+			TokenVersion:    0,
 			IsAuthenticated: false,
 		}
 	}
 
+	tokenVersion, ok := c.Locals(middleware.LocalsTokenVersion).(int)
+	if !ok || tokenVersion == 0 {
+		return urlschema.AuthContext{
+			UserID:          userID,
+			TokenVersion:    0,
+			IsAuthenticated: false,
+		}
+	}
 
 	return urlschema.AuthContext{
 		UserID:          userID,
+		TokenVersion:    tokenVersion,
 		IsAuthenticated: true,
 	}
 }

@@ -6,6 +6,7 @@ CREATE TABLE urls_map (
     user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     long_url VARCHAR(500) NOT NULL,
     short_url VARCHAR(8) NOT NULL,
+    clicks INT DEFAULT 1 NOT NULL,
     created_at TIMESTAMP DEFAULT NOW() NOT NULL,
     expired_at TIMESTAMP NOT NULL,
     -- Composite unique constraint for authenticated users
