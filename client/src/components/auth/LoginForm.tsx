@@ -14,7 +14,7 @@ export default function LoginForm() {
   const navigate = useNavigate();
   const location = useLocation();
   const login = useAuthStore((s) => s.login);
-  const redirectTo = location.state?.from?.pathname ?? "/";
+  const redirectTo = location.state?.from?.pathname ?? "/dashboard";
 
   const {
     values,

@@ -1,6 +1,9 @@
 import type { UrlSchemaType } from "../../schema/url";
 import { apiClient } from "../client/api-client";
-import type { ShortenUrlSuccessResponse } from "../types/url.types";
+import type {
+  GetUrlsSuccessResponse,
+  ShortenUrlSuccessResponse,
+} from "../types/url.types";
 
 const BASE = "/urls";
 
@@ -10,6 +13,11 @@ export const urlService = {
       `${BASE}/`,
       urlInput,
     );
+    return response.data;
+  },
+
+  async getUrlsForUser() {
+    const response = await apiClient.get<GetUrlsSuccessResponse>(`${BASE}/`);
     return response.data;
   },
 };

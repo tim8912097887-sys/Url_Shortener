@@ -5,7 +5,9 @@ import LoginPage from "../pages/LoginPage";
 import NotFoundPage from "../pages/NotFoundPage";
 import SignupPage from "../pages/SignupPage";
 import HomePage from "../pages/HomePage";
+import Dashboard from "../pages/Dashboard";
 import { OAuthPage } from "../pages/OAuthPage";
+import { ProtectedRoute } from "../components/layout/ProtectedRoute";
 
 export const router = createBrowserRouter([
   {
@@ -16,6 +18,15 @@ export const router = createBrowserRouter([
         children: [
           { path: "/login", Component: LoginPage },
           { path: "/signup", Component: SignupPage },
+        ],
+      },
+      {
+        Component: ProtectedRoute,
+        children: [
+          {
+            path: "/dashboard",
+            Component: Dashboard,
+          },
         ],
       },
       { path: "/", Component: HomePage },
