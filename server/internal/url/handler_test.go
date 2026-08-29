@@ -18,6 +18,7 @@ import (
 	urlerror "github.com/tim8912097887-sys/url-shortener/internal/shared/error/url_error"
 	"github.com/tim8912097887-sys/url-shortener/internal/shared/response/envelope"
 	urlschema "github.com/tim8912097887-sys/url-shortener/internal/shared/schema/url_schema"
+	userschema "github.com/tim8912097887-sys/url-shortener/internal/shared/schema/user_schema"
 	jwttoken "github.com/tim8912097887-sys/url-shortener/internal/shared/util/jwt_token"
 	"github.com/tim8912097887-sys/url-shortener/internal/url"
 )
@@ -45,9 +46,10 @@ func wireupHandler(
 	logger := slog.New(slog.NewJSONHandler(os.Stderr, handlerOpts))
 
 	service := url.NewService(&url.ServiceConfig{
-		Repository: repo,
-		Cache:      cache,
-		Logger:     logger,
+		UrlRepository: repo,
+		UserRepository: InitMockUserRepository(),
+		Cache:         cache,
+		Logger:        logger,
 	})
 	tokens := jwttoken.NewTokenManager("access-secret", "refresh-secret")
 	handler := url.NewHandler(url.HandlerConfig{
@@ -494,6 +496,7 @@ type MockRepository struct {
 	ShortCodeExistsFunc  func(ctx context.Context, shortUrl string) (bool, error)
 	CreateShortenUrlFunc func(ctx context.Context, longUrl string, shortUrl string, userID *string, expiredAt time.Time) (string, error)
 	GetUrlsForUserFunc   func(ctx context.Context, userID string) ([]urlschema.GetUrlsRepositoryResponse, error)
+	UpdateUrlClicksFunc  func(ctx context.Context, shortUrl string, clicks int) error
 }
 
 func InitMockRepository() *MockRepository {
@@ -509,6 +512,9 @@ func InitMockRepository() *MockRepository {
 		},
 		GetUrlsForUserFunc: func(ctx context.Context, userID string) ([]urlschema.GetUrlsRepositoryResponse, error) {
 			return []urlschema.GetUrlsRepositoryResponse{}, nil
+		},
+		UpdateUrlClicksFunc: func(ctx context.Context, shortUrl string, clicks int) error {
+			return nil
 		},
 	}
 }
@@ -529,9 +535,34 @@ func (m *MockRepository) GetUrlsForUser(ctx context.Context, userID string) ([]u
 	return m.GetUrlsForUserFunc(ctx, userID)
 }
 
+func (m *MockRepository) UpdateUrlClicks(ctx context.Context, shortUrl string, clicks int) error {
+	return m.UpdateUrlClicksFunc(ctx, shortUrl, clicks)
+}
+
+type MockUserRepository struct {
+	GetUserByIDFunc func(ctx context.Context, id string) (*userschema.GetUserByIDRepositoryResponse, error)
+}
+
+func InitMockUserRepository() *MockUserRepository {
+	return &MockUserRepository{
+		GetUserByIDFunc: func(ctx context.Context, id string) (*userschema.GetUserByIDRepositoryResponse, error) {
+			return &userschema.GetUserByIDRepositoryResponse{ID: id, TokenVersion: 1}, nil
+		},
+	}
+}
+
+func (m *MockUserRepository) GetUserByID(ctx context.Context, id string) (*userschema.GetUserByIDRepositoryResponse, error) {
+	return m.GetUserByIDFunc(ctx, id)
+}
+
 type MockCache struct {
-	GetFunc func(ctx context.Context, key string) (string, error)
-	SetFunc func(ctx context.Context, key string, value any, expiration time.Duration) error
+	GetFunc               func(ctx context.Context, key string) (string, error)
+	SetFunc               func(ctx context.Context, key string, value any, expiration time.Duration) error
+	IncrementFunc         func(ctx context.Context, key string) (int64, error)
+	GetAndResetFunc       func(ctx context.Context, key string) (int64, error)
+	AddPendingClickFunc   func(ctx context.Context, shortURL string) error
+	GetPendingClicksFunc  func(ctx context.Context) ([]string, error)
+	RemovePendingClickFunc func(ctx context.Context, shortURL string) error
 }
 
 func InitMockCache() *MockCache {
@@ -540,6 +571,21 @@ func InitMockCache() *MockCache {
 			return "", redis.Nil
 		},
 		SetFunc: func(ctx context.Context, key string, value any, expiration time.Duration) error {
+			return nil
+		},
+		IncrementFunc: func(ctx context.Context, key string) (int64, error) {
+			return 1, nil
+		},
+		GetAndResetFunc: func(ctx context.Context, key string) (int64, error) {
+			return 0, nil
+		},
+		AddPendingClickFunc: func(ctx context.Context, shortURL string) error {
+			return nil
+		},
+		GetPendingClicksFunc: func(ctx context.Context) ([]string, error) {
+			return nil, nil
+		},
+		RemovePendingClickFunc: func(ctx context.Context, shortURL string) error {
 			return nil
 		},
 	}
@@ -551,4 +597,24 @@ func (m *MockCache) Get(ctx context.Context, key string) (string, error) {
 
 func (m *MockCache) Set(ctx context.Context, key string, value any, expiration time.Duration) error {
 	return m.SetFunc(ctx, key, value, expiration)
+}
+
+func (m *MockCache) Increment(ctx context.Context, key string) (int64, error) {
+	return m.IncrementFunc(ctx, key)
+}
+
+func (m *MockCache) GetAndReset(ctx context.Context, key string) (int64, error) {
+	return m.GetAndResetFunc(ctx, key)
+}
+
+func (m *MockCache) AddPendingClick(ctx context.Context, shortURL string) error {
+	return m.AddPendingClickFunc(ctx, shortURL)
+}
+
+func (m *MockCache) GetPendingClicks(ctx context.Context) ([]string, error) {
+	return m.GetPendingClicksFunc(ctx)
+}
+
+func (m *MockCache) RemovePendingClick(ctx context.Context, shortURL string) error {
+	return m.RemovePendingClickFunc(ctx, shortURL)
 }
