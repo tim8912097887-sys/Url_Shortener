@@ -1,7 +1,10 @@
 package url
 
 import (
+	"fmt"
 	"log/slog"
+	"strconv"
+	"time"
 
 	"github.com/gofiber/fiber/v3"
 	usererror "github.com/tim8912097887-sys/url-shortener/internal/shared/error/user_error"
@@ -153,15 +156,17 @@ func (h *Handler) GetUrlsForUser(c fiber.Ctx) {
 		writeresponse.ErrorHandler(c, usererror.ErrInvalidToken, h.logger, "failed to get urls for user")
 		return
 	}
+	// Get pagination params
+    expiredAt, limit := getPaginationParams(c)
 
-	urls, err := h.service.GetUrlsForUser(c.RequestCtx(), authContext.UserID)
+	urls, hasMore, err := h.service.GetUrlsForUser(c.RequestCtx(), authContext.UserID, expiredAt, limit)
 
 	if err != nil {
 		writeresponse.ErrorHandler(c, err, h.logger, "failed to get urls for user")
 		return
 	}
 
-	writeresponse.SuccessJson(c, fiber.StatusOK, urlschema.GetUrlsResponse{Urls: urls, Message: "Successfully get urls for user"})
+	writeresponse.SuccessJson(c, fiber.StatusOK, urlschema.GetUrlsResponse{Urls: urls, HasMore: hasMore, Message: "Successfully get urls for user"})
 }
 
 func (h *Handler) authFromLocals(c fiber.Ctx) urlschema.AuthContext {
@@ -188,4 +193,41 @@ func (h *Handler) authFromLocals(c fiber.Ctx) urlschema.AuthContext {
 		TokenVersion:    tokenVersion,
 		IsAuthenticated: true,
 	}
+}
+
+func getPaginationParams(c fiber.Ctx) (expiredAt time.Time, limit int) {
+	// Default values
+	defaultExpiredAt := time.Now().Add(AuthURLExpiry)
+	defaultLimit := UrlsMaxLimit
+
+	// Parse 'expiredAt' parameter (expected ISO 8601 / RFC3339 format, e.g., 2026-08-29T15:04:05Z)
+	expiredAtStr := c.Query("expiredAt")
+	if expiredAtStr != "" {
+		parsedTime, err := time.Parse(time.RFC3339Nano, expiredAtStr)
+	
+		if err == nil {
+	        fmt.Println("parsedTime", parsedTime)
+			expiredAt = parsedTime
+		} else {
+			fmt.Println("parsedTime err", err)
+			expiredAt = defaultExpiredAt
+		}
+	} else {
+		expiredAt = defaultExpiredAt
+	}
+
+	// Parse 'limit' parameter
+	limitStr := c.Query("limit")
+	if limitStr != "" {
+		parsedLimit, err := strconv.Atoi(limitStr)
+		if err == nil {
+			limit = parsedLimit
+		} else {
+			limit = defaultLimit
+		}
+	} else {
+		limit = defaultLimit
+	}
+
+	return expiredAt, limit
 }

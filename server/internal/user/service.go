@@ -59,7 +59,7 @@ func (s *service) Signup(ctx context.Context, createUserInput userschema.CreateU
 	if _, err := s.repository.CreateUser(ctx, userschema.UserInsert{
 		ID: uuid.New(),
 		Username: createUserInput.Username, 
-		Email: strings.ToLower(strings.TrimSpace(createUserInput.Email)), 
+		Email: normalizeEmail(createUserInput.Email), 
 		PasswordHash: string(passwordHash)}); err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func (s *service) Signup(ctx context.Context, createUserInput userschema.CreateU
 // Login returns ErrInvalidCredential for both an unknown email and a wrong
 // password — never anything that distinguishes the two.
 func (s *service) Login(ctx context.Context, email, password string) (accessToken, refreshToken string, err error) {
-	u, err := s.repository.GetUserByEmail(ctx, email)
+	u, err := s.repository.GetUserByEmail(ctx, normalizeEmail(email))
 	if err != nil {
 		if errors.Is(err, usererror.ErrUserNotFound) {
 			return "", "", usererror.ErrInvalidCredential
@@ -169,4 +169,8 @@ func (s *service) Refresh(ctx context.Context, userID string, tokenVersion int) 
 	}
 
 	return newAccessToken, newRefreshToken, nil
+}
+
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
 }
