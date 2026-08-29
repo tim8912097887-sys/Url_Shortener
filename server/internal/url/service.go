@@ -124,11 +124,13 @@ func (s *service) GetUrl(ctx context.Context, shortUrl string, authContext urlsc
 	return longUrl, nil
 }
 
-func (s *service) GetUrlsForUser(ctx context.Context, userId string) ([]urlschema.GetUrlsServiceResponse, error) {
-	urls, err := s.urlRepository.GetUrlsForUser(ctx, userId)
+func (s *service) GetUrlsForUser(ctx context.Context, userId string, expiredAt time.Time, limit int) ([]urlschema.GetUrlsServiceResponse, bool, error) {
+	// Normalize expiredAt and limit
+	normalizedExpiredAt, normalizedLimit := normalizeQueryData(expiredAt, limit)
+	urls, hasMore, err := s.urlRepository.GetUrlsForUser(ctx, userId, normalizedExpiredAt, normalizedLimit)
     
 	if err != nil {
-		return nil, err
+		return nil, hasMore, err
 	}
 	
 	var response []urlschema.GetUrlsServiceResponse
@@ -141,7 +143,7 @@ func (s *service) GetUrlsForUser(ctx context.Context, userId string) ([]urlschem
 		})
 	}
 	
-	return response, nil
+	return response, hasMore, nil
 }
 
 func (s *service) checkUserValid(ctx context.Context, userId string, tokenVersion int) bool {
@@ -167,4 +169,12 @@ func cacheTTL(auth urlschema.AuthContext) time.Duration {
 	}
 
 	return UnauthCacheTTL
+}
+
+func normalizeQueryData(expiredAt time.Time, limit int) (time.Time, int) {
+	if expiredAt.Before(time.Now()) || expiredAt.IsZero() {
+		expiredAt = time.Now().Add(AuthURLExpiry)
+	}
+	limit = max(UrlsMinLimit, min(limit, UrlsMaxLimit))
+	return expiredAt, limit
 }

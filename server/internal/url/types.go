@@ -11,13 +11,13 @@ import (
 type UrlService interface {
 	ShortenUrl(ctx context.Context, url string, authContext urlschema.AuthContext) (string, error)
 	GetUrl(ctx context.Context, shortUrl string, authContext urlschema.AuthContext) (string, error)
-	GetUrlsForUser(ctx context.Context, userId string) ([]urlschema.GetUrlsServiceResponse, error)
+	GetUrlsForUser(ctx context.Context, userId string, expiredAt time.Time, limit int) ([]urlschema.GetUrlsServiceResponse, bool, error)
 }
 
 type UrlRepository interface {
 	GetLongUrl(ctx context.Context, shortUrl string) (string, time.Time, error)
 	CreateShortenUrl(ctx context.Context, longUrl string, shortUrl string, userId *string, expiredAt time.Time) (string, error)
-    GetUrlsForUser(ctx context.Context, userId string) ([]urlschema.GetUrlsRepositoryResponse, error)
+    GetUrlsForUser(ctx context.Context, userId string, expiredAt time.Time, limit int) ([]urlschema.GetUrlsRepositoryResponse, bool, error)
     UpdateUrlClicks(ctx context.Context, shortUrl string, clicks int) error
 }
 

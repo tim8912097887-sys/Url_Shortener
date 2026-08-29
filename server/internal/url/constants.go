@@ -15,4 +15,6 @@ const (
 
 	WorkerInterval = 1 * time.Minute
 	WorkerTimeout  = 10 * time.Second
+	UrlsMaxLimit   = 10
+	UrlsMinLimit   = 1
 )

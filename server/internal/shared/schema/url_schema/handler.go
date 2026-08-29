@@ -8,6 +8,7 @@ type AuthContext struct {
 
 type GetUrlsResponse struct {
 	Urls    []GetUrlsServiceResponse `json:"urls"`
+	HasMore bool                     `json:"hasMore"`
 	Message string                   `json:"message"`
 }
 
