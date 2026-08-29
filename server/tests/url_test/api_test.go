@@ -148,7 +148,6 @@ func TestGetURL(t *testing.T) {
 	})
 
 	t.Run("serves a cache hit without the database row", func(t *testing.T) {
-		
 		if err := app.Cache.Set(context.Background(), "url:cached1x", "https://example.com/cached", time.Minute).Err(); err != nil {
 			t.Fatal(err)
 		}
@@ -157,6 +156,30 @@ func TestGetURL(t *testing.T) {
 			t.Fatalf("expected cached redirect, got status %d and location %q", response.StatusCode, response.Header.Get("Location"))
 		}
 		response.Body.Close()
+
+		clicks, err := app.Cache.Get(context.Background(), "url:cached1x:clicks").Int64()
+		if err != nil {
+			t.Fatalf("expected cached click counter to be set: %v", err)
+		}
+		if clicks != 1 {
+			t.Fatalf("expected one cached click, got %d", clicks)
+		}
+
+		pendingClicks, err := app.Cache.SMembers(context.Background(), "url:clicks:pending").Result()
+		if err != nil {
+			t.Fatalf("expected pending click set to be available: %v", err)
+		}
+		found := false
+		for _, pending := range pendingClicks {
+			if pending == "cached1x" {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("expected pending click set to include cached short URL, got %#v", pendingClicks)
+		}
+
 		helper.Cleanup(t, app.Pool, app.Cache)
 	})
 

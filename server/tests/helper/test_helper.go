@@ -81,7 +81,7 @@ func NewApp(t *testing.T) *App {
 		CookieSecure:       false,
 		CookieSameSite:     "lax",
 	}
-	handler := api.NewApi(api.ApiConfig{Logger: logger, Cfg: cfg}).Mount(pool, redisClient)
+	handler := api.NewApi(api.ApiConfig{Logger: logger, Cfg: cfg}).Mount(pool, redisClient, ctx)
 
 	return &App{Handler: handler, Pool: pool, Cache: redisClient, Tokens: tokens}
 }
