@@ -2,10 +2,9 @@ import { Navigate, Outlet } from "react-router";
 import { useAuthStore } from "../../store/useAuthStore";
 import Spinner from "../ui/spinner";
 
-// Keeps a logged-in user off /login and /signup.
-export default function PublicOnlyRoute() {
-  const isAuthenticated = useAuthStore((s) => s.isAuthenticated);
-  const isInitializing = useAuthStore((s) => s.isInitializing);
+export const ProtectedRoute = () => {
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isInitializing = useAuthStore((state) => state.isInitializing);
 
   if (isInitializing) {
     return (
@@ -15,9 +14,9 @@ export default function PublicOnlyRoute() {
     );
   }
 
-  if (!isInitializing && isAuthenticated) {
-    return <Navigate to="/dashboard" replace />;
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
   }
 
   return <Outlet />;
-}
+};

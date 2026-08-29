@@ -20,6 +20,21 @@ export default function Header() {
 
         {isAuthenticated ? (
           <div className="flex items-center gap-4">
+            <nav className="flex items-center gap-1">
+              <Link
+                to="/"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              >
+                Shorten URL
+              </Link>
+
+              <Link
+                to="/dashboard"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+              >
+                Dashboard
+              </Link>
+            </nav>
             <span className="hidden text-sm text-slate-500 sm:inline">
               {user?.email ?? user?.username ?? "Signed in"}
             </span>
@@ -27,6 +42,12 @@ export default function Header() {
           </div>
         ) : (
           <nav className="flex items-center gap-2">
+            <Link
+              to="/"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"
+            >
+              Shorten URL
+            </Link>
             <Link
               to="/login"
               className="rounded-lg px-3 py-2 text-sm font-medium text-slate-600 hover:bg-slate-100"

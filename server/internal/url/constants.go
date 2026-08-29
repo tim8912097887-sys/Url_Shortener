@@ -13,6 +13,6 @@ const (
 
 	pendingClicksKey = "url:clicks:pending"
 
-	WorkerInterval = 3 * time.Minute
+	WorkerInterval = 1 * time.Minute
 	WorkerTimeout  = 10 * time.Second
 )
