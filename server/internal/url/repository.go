@@ -107,7 +107,7 @@ func (r *repository) GetUrlsForUser(ctx context.Context, userId string, expiredA
 	sql := `SELECT 
 	         short_url, long_url, clicks, expired_at 
 			FROM urls_map 
-			WHERE user_id = $1 AND expired_at < $2 
+			WHERE user_id = $1 AND expired_at > NOW() AND expired_at < $2 
 			ORDER BY expired_at DESC
 			LIMIT $3;`
 	rows, err := r.pool.Query(ctx, sql, userId, expiredAt, limit+1)

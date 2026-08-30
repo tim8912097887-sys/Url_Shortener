@@ -116,9 +116,13 @@ func getUrlRequest(t *testing.T, app *fiber.App, params string) *http.Response {
 	return resp
 }
 
-func getUrlsForUserRequest(t *testing.T, app *fiber.App, token string) *http.Response {
+func getUrlsForUserRequest(t *testing.T, app *fiber.App, token string, query ...string) *http.Response {
 	t.Helper()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/urls", nil)
+	path := "/api/v1/urls"
+	if len(query) > 0 && query[0] != "" {
+		path += "?" + query[0]
+	}
+	req := httptest.NewRequest(http.MethodGet, path, nil)
 	if token != "" {
 		req.Header.Set(fiber.HeaderAuthorization, "Bearer "+token)
 	}
@@ -418,8 +422,8 @@ func TestGetUrlsForUser(t *testing.T) {
 			name:          "repository failure",
 			authenticated: true,
 			repository: func(repository *MockRepository) {
-				repository.GetUrlsForUserFunc = func(context.Context, string) ([]urlschema.GetUrlsRepositoryResponse, error) {
-					return nil, errors.New("database unavailable")
+				repository.GetUrlsForUserFunc = func(context.Context, string, time.Time, int) ([]urlschema.GetUrlsRepositoryResponse, bool, error) {
+					return nil, false, errors.New("database unavailable")
 				}
 			},
 			statusCode: http.StatusInternalServerError,
@@ -451,8 +455,8 @@ func TestGetUrlsForUser(t *testing.T) {
 
 	t.Run("returns empty urls", func(t *testing.T) {
 		repository := InitMockRepository()
-		repository.GetUrlsForUserFunc = func(context.Context, string) ([]urlschema.GetUrlsRepositoryResponse, error) {
-			return []urlschema.GetUrlsRepositoryResponse{}, nil
+		repository.GetUrlsForUserFunc = func(context.Context, string, time.Time, int) ([]urlschema.GetUrlsRepositoryResponse, bool, error) {
+			return []urlschema.GetUrlsRepositoryResponse{}, false, nil
 		}
 		app := setupRouter(t, wireupHandler(t, repository, InitMockCache()))
 		resp := getUrlsForUserRequest(t, app, accessToken(t, "user-1"))
@@ -471,11 +475,17 @@ func TestGetUrlsForUser(t *testing.T) {
 	t.Run("returns user urls", func(t *testing.T) {
 		expiredAt := time.Now().Add(time.Hour).UTC().Truncate(time.Millisecond)
 		repository := InitMockRepository()
-		repository.GetUrlsForUserFunc = func(ctx context.Context, userID string) ([]urlschema.GetUrlsRepositoryResponse, error) {
+		repository.GetUrlsForUserFunc = func(ctx context.Context, userID string, receivedExpiredAt time.Time, limit int) ([]urlschema.GetUrlsRepositoryResponse, bool, error) {
 			if userID != "user-1" {
 				t.Fatalf("expected user-1, got %s", userID)
 			}
-			return []urlschema.GetUrlsRepositoryResponse{{ShortUrl: "abc12345", LongUrl: "https://example.com", ExpiredAt: expiredAt}}, nil
+			if !receivedExpiredAt.After(time.Now()) {
+				t.Fatalf("expected a future expiredAt, got %s", receivedExpiredAt)
+			}
+			if limit != url.UrlsMaxLimit {
+				t.Fatalf("expected default limit %d, got %d", url.UrlsMaxLimit, limit)
+			}
+			return []urlschema.GetUrlsRepositoryResponse{{ShortUrl: "abc12345", LongUrl: "https://example.com", ExpiredAt: expiredAt}}, false, nil
 		}
 		app := setupRouter(t, wireupHandler(t, repository, InitMockCache()))
 		resp := getUrlsForUserRequest(t, app, accessToken(t, "user-1"))
@@ -489,13 +499,88 @@ func TestGetUrlsForUser(t *testing.T) {
 			t.Fatalf("unexpected urls response: %#v", urls)
 		}
 	})
+
+	t.Run("applies pagination defaults and clamps limit and expiredAt", func(t *testing.T) {
+		repository := InitMockRepository()
+		repository.GetUrlsForUserFunc = func(ctx context.Context, userID string, expiredAt time.Time, limit int) ([]urlschema.GetUrlsRepositoryResponse, bool, error) {
+			if userID != "user-1" {
+				t.Fatalf("expected user-1, got %s", userID)
+			}
+			if limit != url.UrlsMaxLimit {
+				t.Fatalf("expected clamped limit %d, got %d", url.UrlsMaxLimit, limit)
+			}
+			delta := time.Until(expiredAt)
+			if delta < url.AuthURLExpiry-time.Minute || delta > url.AuthURLExpiry+time.Minute {
+				t.Fatalf("expected expiredAt near %s, got %s (delta=%s)", time.Now().Add(url.AuthURLExpiry), expiredAt, delta)
+			}
+			return []urlschema.GetUrlsRepositoryResponse{}, false, nil
+		}
+		app := setupRouter(t, wireupHandler(t, repository, InitMockCache()))
+		resp := getUrlsForUserRequest(t, app, accessToken(t, "user-1"), "limit=999&expiredAt=not-a-date")
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected status code %d but got %d", http.StatusOK, resp.StatusCode)
+		}
+	})
+
+	t.Run("respects minimum and maximum limit and past expiredAt fallback", func(t *testing.T) {
+		testCases := []struct {
+			name      string
+			query     string
+			expectedL int
+			expectedA time.Time
+		}{
+			{name: "limit below minimum", query: "limit=0", expectedL: url.UrlsMinLimit},
+			{name: "limit above maximum", query: "limit=999", expectedL: url.UrlsMaxLimit},
+			{name: "past expiredAt fallback", query: "expiredAt=" + time.Now().Add(-time.Hour).Format(time.RFC3339Nano), expectedL: url.UrlsMaxLimit},
+		}
+
+		for _, tc := range testCases {
+			t.Run(tc.name, func(t *testing.T) {
+				repository := InitMockRepository()
+				repository.GetUrlsForUserFunc = func(ctx context.Context, userID string, expiredAt time.Time, limit int) ([]urlschema.GetUrlsRepositoryResponse, bool, error) {
+					if limit != tc.expectedL {
+						t.Fatalf("expected limit %d, got %d", tc.expectedL, limit)
+					}
+					if tc.query == "" || strings.Contains(tc.query, "expiredAt=") {
+						delta := time.Until(expiredAt)
+						if delta < url.AuthURLExpiry-time.Minute || delta > url.AuthURLExpiry+time.Minute {
+							t.Fatalf("expected expiredAt near default fallback, got %s (delta=%s)", expiredAt, delta)
+						}
+					}
+					return []urlschema.GetUrlsRepositoryResponse{}, false, nil
+				}
+				app := setupRouter(t, wireupHandler(t, repository, InitMockCache()))
+				resp := getUrlsForUserRequest(t, app, accessToken(t, "user-1"), tc.query)
+				if resp.StatusCode != http.StatusOK {
+					t.Fatalf("expected status code %d but got %d", http.StatusOK, resp.StatusCode)
+				}
+			})
+		}
+	})
+
+	t.Run("returns hasMore from repository", func(t *testing.T) {
+		repository := InitMockRepository()
+		repository.GetUrlsForUserFunc = func(context.Context, string, time.Time, int) ([]urlschema.GetUrlsRepositoryResponse, bool, error) {
+			return []urlschema.GetUrlsRepositoryResponse{{ShortUrl: "abc12345", LongUrl: "https://example.com", ExpiredAt: time.Now().Add(time.Hour)}}, true, nil
+		}
+		app := setupRouter(t, wireupHandler(t, repository, InitMockCache()))
+		resp := getUrlsForUserRequest(t, app, accessToken(t, "user-1"), "limit=1")
+		if resp.StatusCode != http.StatusOK {
+			t.Fatalf("expected status code %d but got %d", http.StatusOK, resp.StatusCode)
+		}
+		response := decodeResponse[envelope.SuccessResponse](t, resp)
+		data := response.Data.(map[string]any)
+		if data["hasMore"] != true {
+			t.Fatalf("expected hasMore to be true, got %#v", data["hasMore"])
+		}
+	})
 }
 
 type MockRepository struct {
 	GetLongUrlFunc       func(ctx context.Context, shortUrl string) (string, time.Time, error)
 	ShortCodeExistsFunc  func(ctx context.Context, shortUrl string) (bool, error)
 	CreateShortenUrlFunc func(ctx context.Context, longUrl string, shortUrl string, userID *string, expiredAt time.Time) (string, error)
-	GetUrlsForUserFunc   func(ctx context.Context, userID string) ([]urlschema.GetUrlsRepositoryResponse, error)
+	GetUrlsForUserFunc   func(ctx context.Context, userID string, expiredAt time.Time, limit int) ([]urlschema.GetUrlsRepositoryResponse, bool, error)
 	UpdateUrlClicksFunc  func(ctx context.Context, shortUrl string, clicks int) error
 }
 
@@ -510,8 +595,8 @@ func InitMockRepository() *MockRepository {
 		CreateShortenUrlFunc: func(ctx context.Context, longUrl string, shortUrl string, userID *string, expiredAt time.Time) (string, error) {
 			return shortUrl, nil
 		},
-		GetUrlsForUserFunc: func(ctx context.Context, userID string) ([]urlschema.GetUrlsRepositoryResponse, error) {
-			return []urlschema.GetUrlsRepositoryResponse{}, nil
+		GetUrlsForUserFunc: func(ctx context.Context, userID string, expiredAt time.Time, limit int) ([]urlschema.GetUrlsRepositoryResponse, bool, error) {
+			return []urlschema.GetUrlsRepositoryResponse{}, false, nil
 		},
 		UpdateUrlClicksFunc: func(ctx context.Context, shortUrl string, clicks int) error {
 			return nil
@@ -531,8 +616,8 @@ func (m *MockRepository) CreateShortenUrl(ctx context.Context, longUrl string, s
 	return m.CreateShortenUrlFunc(ctx, longUrl, shortUrl, userID, expiredAt)
 }
 
-func (m *MockRepository) GetUrlsForUser(ctx context.Context, userID string) ([]urlschema.GetUrlsRepositoryResponse, error) {
-	return m.GetUrlsForUserFunc(ctx, userID)
+func (m *MockRepository) GetUrlsForUser(ctx context.Context, userID string, expiredAt time.Time, limit int) ([]urlschema.GetUrlsRepositoryResponse, bool, error) {
+	return m.GetUrlsForUserFunc(ctx, userID, expiredAt, limit)
 }
 
 func (m *MockRepository) UpdateUrlClicks(ctx context.Context, shortUrl string, clicks int) error {
