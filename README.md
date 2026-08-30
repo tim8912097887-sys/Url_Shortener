@@ -165,6 +165,40 @@ URL redirects are performance-sensitive because every redirect may require a dat
 
 Redis reduces latency and database load by serving frequently accessed URLs directly from cache.
 
+## 🔑 Token Versioning
+
+To strengthen authentication and logout flows, the system implements token versioning:
+
+- Each user account maintains a token version field.
+
+- On single-device logout, only the refresh/access tokens tied to that device are invalidated.
+
+- On global logout (all devices), the token version is incremented.
+
+Any existing tokens with the old version become invalid immediately.
+
+New login or refresh requests issue tokens bound to the updated version.
+
+This design ensures fine-grained control over session invalidation while keeping token checks efficient.
+
+## 📜 Cursor-Based Pagination
+
+The application supports cursor-based pagination for listing shortened URLs:
+
+- Instead of offset-based pagination, the URL expiration timestamp is used as the cursor.
+
+- This approach ensures stable ordering even when URLs are deleted or expire.
+
+- Example flow:
+
+- Query returns URLs ordered by expiration time.
+
+- The last item’s expiration timestamp becomes the next cursor.
+
+- Subsequent queries fetch URLs with expiration times greater than the cursor.
+
+This design leverages natural lifecycle data (expiration) to provide efficient, consistent pagination without gaps.
+
 ## Rolling TTL
 
 Instead of keeping every cached URL for a fixed duration regardless of usage, active URLs receive a TTL extension.
