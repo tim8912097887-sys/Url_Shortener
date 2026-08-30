@@ -134,13 +134,16 @@ func (h *Handler) GetUrl(c fiber.Ctx) {
 // GetUrlsForUser godoc
 //
 // @Summary Get current user's shortened URLs
-// @Description Returns all shortened URLs owned by the authenticated user.
+// @Description Returns all shortened URLs owned by the authenticated user. Supports cursor-based pagination.
 // @Description
 // @Description Only URLs created by the current authenticated user are returned.
 //
 // @Tags URLs
 // @Produce json
 // @Security BearerAuth
+//
+// @Param expiredAt query string false "Cursor timestamp for pagination in RFC3339 format" example(2026-08-30T15:04:05Z)
+// @Param limit query int false "Number of records to return" default(10) example(10)
 //
 // @Success 200 {object} urlschema.GetUrlsResponse
 //

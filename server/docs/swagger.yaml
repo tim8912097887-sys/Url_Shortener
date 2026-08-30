@@ -1,45 +1,42 @@
 basePath: /api/v1
 definitions:
-  envelope.Error:
+  github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.Error:
     properties:
       code:
         type: string
       message:
         type: string
     type: object
-  envelope.ErrorResponse:
+  github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse:
     properties:
       data: {}
       error:
-        $ref: '#/definitions/envelope.Error'
+        $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.Error'
       metaData:
-        $ref: '#/definitions/envelope.MetaData'
+        $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.MetaData'
       state:
         type: string
     type: object
-  envelope.MetaData:
+  github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.MetaData:
     properties:
       timestamp:
         type: string
     type: object
-  url.CreateUrlSchema:
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.GetUrlsResponse:
     properties:
-      url:
-        type: string
-    required:
-    - url
-    type: object
-  urlschema.GetUrlsResponse:
-    properties:
+      hasMore:
+        type: boolean
       message:
         type: string
       urls:
         items:
-          $ref: '#/definitions/urlschema.GetUrlsServiceResponse'
+          $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.GetUrlsServiceResponse'
         type: array
     type: object
-  urlschema.GetUrlsServiceResponse:
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.GetUrlsServiceResponse:
     properties:
+      clicks:
+        type: integer
       expired_at:
         type: string
       long_url:
@@ -47,14 +44,14 @@ definitions:
       short_url:
         type: string
     type: object
-  urlschema.ShortenUrlResponse:
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.ShortenUrlResponse:
     properties:
       message:
         type: string
       shortUrl:
         type: string
     type: object
-  userschema.LoginRequest:
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LoginRequest:
     properties:
       email:
         type: string
@@ -66,31 +63,31 @@ definitions:
     - email
     - password
     type: object
-  userschema.LoginResponse:
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LoginResponse:
     properties:
       accessToken:
         type: string
       message:
         type: string
     type: object
-  userschema.LogoutAllResponse:
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LogoutAllResponse:
     properties:
       message:
         type: string
     type: object
-  userschema.LogoutResponse:
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LogoutResponse:
     properties:
       message:
         type: string
     type: object
-  userschema.RefreshResponse:
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.RefreshResponse:
     properties:
       accessToken:
         type: string
       message:
         type: string
     type: object
-  userschema.SignupRequest:
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.SignupRequest:
     properties:
       email:
         maxLength: 255
@@ -109,10 +106,17 @@ definitions:
     - password
     - username
     type: object
-  userschema.SignupResponse:
+  github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.SignupResponse:
     properties:
       message:
         type: string
+    type: object
+  internal_url.CreateUrlSchema:
+    properties:
+      url:
+        type: string
+    required:
+    - url
     type: object
 info:
   contact: {}
@@ -137,24 +141,36 @@ paths:
   /urls:
     get:
       description: |-
-        Returns all shortened URLs owned by the authenticated user.
+        Returns all shortened URLs owned by the authenticated user. Supports cursor-based pagination.
 
         Only URLs created by the current authenticated user are returned.
+      parameters:
+      - description: Cursor timestamp for pagination in RFC3339 format
+        example: "2026-08-30T15:04:05Z"
+        in: query
+        name: expiredAt
+        type: string
+      - default: 10
+        description: Number of records to return
+        example: 10
+        in: query
+        name: limit
+        type: integer
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/urlschema.GetUrlsResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.GetUrlsResponse'
         "401":
           description: Missing or invalid access token
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Get current user's shortened URLs
@@ -175,26 +191,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/url.CreateUrlSchema'
+          $ref: '#/definitions/internal_url.CreateUrlSchema'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/urlschema.ShortenUrlResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_url_schema.ShortenUrlResponse'
         "400":
           description: Invalid request body or URL
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
         "429":
           description: Rate limit exceeded
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
       summary: Create a shortened URL
       tags:
       - URLs
@@ -224,15 +240,15 @@ paths:
         "400":
           description: Invalid short URL
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
         "404":
           description: URL not found or expired
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
       summary: Resolve a shortened URL
       tags:
       - URLs
@@ -253,26 +269,26 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/userschema.LoginRequest'
+          $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LoginRequest'
       produces:
       - application/json
       responses:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/userschema.LoginResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LoginResponse'
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
         "401":
           description: Invalid credentials
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
       summary: Login
       tags:
       - Users
@@ -289,15 +305,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/userschema.LogoutResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LogoutResponse'
         "401":
           description: Missing or invalid access token
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Logout current device
@@ -316,15 +332,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/userschema.LogoutAllResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.LogoutAllResponse'
         "401":
           description: Missing or invalid access token
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
       security:
       - BearerAuth: []
       summary: Logout all sessions
@@ -345,15 +361,15 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/userschema.RefreshResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.RefreshResponse'
         "401":
           description: Missing, expired, or invalid refresh token
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
       summary: Refresh access token
       tags:
       - Users
@@ -373,22 +389,22 @@ paths:
         name: request
         required: true
         schema:
-          $ref: '#/definitions/userschema.SignupRequest'
+          $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.SignupRequest'
       produces:
       - application/json
       responses:
         "201":
           description: Created
           schema:
-            $ref: '#/definitions/userschema.SignupResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_schema_user_schema.SignupResponse'
         "400":
           description: Invalid request
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
         "500":
           description: Internal server error
           schema:
-            $ref: '#/definitions/envelope.ErrorResponse'
+            $ref: '#/definitions/github_com_tim8912097887-sys_url-shortener_internal_shared_response_envelope.ErrorResponse'
       summary: Create user account
       tags:
       - Users
