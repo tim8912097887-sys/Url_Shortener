@@ -1,38 +1,25 @@
-import { useEffect, useState } from "react";
-import { urlService } from "../api/services/url.service";
+import { useEffect } from "react";
 import UrlCard from "../components/url/UrlCard";
-import type { ApiError } from "../api/errors/api-error";
-
-type Url = {
-  long_url: string;
-  short_url: string;
-  expired_at: string;
-  clicks: number;
-};
+import { useUrlsStore } from "../store/useUrlsStore";
+import { PaginationButton } from "../components/url/PaginationButton";
 
 const Dashboard = () => {
-  const [urls, setUrls] = useState<Url[] | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const isLoading = useUrlsStore((state) => state.isLoading);
+  const error = useUrlsStore((state) => state.error);
+  const urls = useUrlsStore((state) => state.urls);
+  const hasMore = useUrlsStore((state) => state.hasMore);
+  const getUrlsForUser = useUrlsStore((state) => state.getUrlsForUser);
+  const page = useUrlsStore((state) => state.page);
+  const previousPage = useUrlsStore((state) => state.previousPage);
+  const nextPage = useUrlsStore((state) => state.nextPage);
+  const currentCursor = useUrlsStore((state) => state.currentCursor);
 
   useEffect(() => {
     const fetchUrls = async () => {
-      try {
-        setError(null);
-        const data = await urlService.getUrlsForUser();
-        await new Promise((resolve) => setTimeout(resolve, 3000));
-        setUrls(data.data.urls);
-      } catch (error) {
-        const axiosError = error as ApiError;
-        setError(
-          axiosError.message ?? "Failed to load your URLs. Please try again.",
-        );
-      } finally {
-        setIsLoading(false);
-      }
+      getUrlsForUser(currentCursor);
     };
     fetchUrls();
-  }, []);
+  }, [getUrlsForUser, currentCursor]);
 
   return (
     <main className="min-h-[calc(100vh-5rem)] bg-slate-50">
@@ -105,6 +92,26 @@ const Dashboard = () => {
             ))}
           </div>
         )}
+        {/* Pagination */}
+        <div className="mt-8 flex items-center justify-center gap-4">
+          <PaginationButton
+            direction="previous"
+            ariaLabel="Previous page"
+            disabled={page === 1 || isLoading}
+            onClick={previousPage}
+          />
+
+          <span className="min-w-16 text-center text-sm font-medium text-slate-600">
+            Page {page}
+          </span>
+
+          <PaginationButton
+            direction="next"
+            ariaLabel="Next page"
+            disabled={!hasMore || isLoading}
+            onClick={nextPage}
+          />
+        </div>
       </div>
     </main>
   );

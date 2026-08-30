@@ -9,6 +9,7 @@ export type UrlSchemaType = {
 
 export type GetUrlsData = {
   urls: UrlSchemaType[] | null;
+  hasMore: boolean;
   message: string;
 };
 
