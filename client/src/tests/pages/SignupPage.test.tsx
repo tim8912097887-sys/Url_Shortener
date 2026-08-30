@@ -2,12 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router";
-import SignupPage from "../../src/pages/SignupPage";
+import SignupPage from "../../pages/SignupPage.tsx";
 
 const mockSignup = vi.fn();
 const mockNavigate = vi.fn();
 
-vi.mock("../../src/store/useAuthStore", () => ({
+vi.mock("../../store/useAuthStore", () => ({
   useAuthStore: (selector: any) =>
     selector({
       signup: mockSignup,

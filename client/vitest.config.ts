@@ -13,7 +13,7 @@ export default defineConfig({
       exclude: ["node_modules/", "dist/", "**/*.d.ts", "**/vitest.config.*"],
     },
     // Global setup files (e.g. DB mocks, env vars)
-    setupFiles: ["./src/test/setup.ts"],
+    setupFiles: ["./src/tests/setup.ts"],
     // Clear mocks between tests
     clearMocks: true,
     restoreMocks: true,
@@ -24,7 +24,7 @@ export default defineConfig({
       indent: 2,
       printBasicPrototype: true,
     },
-    include: ["tests/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
+    include: ["src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}"],
     environment: "jsdom",
     // Reporters
     reporters: process.env.CI ? ["default", "junit"] : ["default"],

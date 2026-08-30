@@ -1,11 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
-import { urlService } from "../../src/api/services/url.service";
-import { useUrlsStore } from "../../src/store/useUrlsStore";
-import Dashboard from "../../src/pages/Dashboard";
-import { env } from "../../src/config/env";
+import { urlService } from "../../api/services/url.service";
+import { useUrlsStore } from "../../store/useUrlsStore";
+import Dashboard from "../../pages/Dashboard";
+import { env } from "../../config/env";
 
-vi.mock("../../src/api/services/url.service", () => ({
+vi.mock("../../api/services/url.service", () => ({
   urlService: {
     getUrlsForUser: vi.fn(),
   },
