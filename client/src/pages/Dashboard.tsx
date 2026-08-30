@@ -119,7 +119,10 @@ const Dashboard = () => {
 
 const UrlCardSkeleton = () => {
   return (
-    <div className="animate-pulse rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+    <div
+      test-id="url-card-skeleton"
+      className="animate-pulse rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+    >
       <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1 space-y-3">
           <div className="h-5 w-48 rounded bg-slate-200" />
