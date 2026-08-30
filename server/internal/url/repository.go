@@ -103,7 +103,7 @@ func (r *repository) CreateShortenUrl(
 }
 
 func (r *repository) GetUrlsForUser(ctx context.Context, userId string, expiredAt time.Time, limit int) ([]urlschema.GetUrlsRepositoryResponse, bool, error) {
-	var urls []urlschema.GetUrlsRepositoryResponse
+	urls := make([]urlschema.GetUrlsRepositoryResponse, 0, limit)
 	sql := `SELECT 
 	         short_url, long_url, clicks, expired_at 
 			FROM urls_map 
