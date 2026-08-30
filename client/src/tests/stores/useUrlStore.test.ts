@@ -1,8 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { urlService } from "../../src/api/services/url.service";
-import { useUrlsStore } from "../../src/store/useUrlsStore";
+import { urlService } from "../../api/services/url.service";
+import { useUrlsStore } from "../../store/useUrlsStore";
 
-vi.mock("../../src/api/services/url.service", () => ({
+vi.mock("../../api/services/url.service", () => ({
   urlService: {
     getUrlsForUser: vi.fn(),
   },
