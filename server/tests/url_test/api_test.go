@@ -2,6 +2,7 @@ package urltest
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -294,6 +295,123 @@ func TestGetURLsForUser(t *testing.T) {
 			t.Fatalf("expected current empty-list response to contain null, got %#v", data["urls"])
 		}
 		
+		helper.Cleanup(t, app.Pool, app.Cache)
+	})
+
+	t.Run("paginates active URLs and handles edge cases", func(t *testing.T) {
+		if response := helper.SignupUser(t, app, "alice", "alice@example.com", "password1"); response.StatusCode != http.StatusCreated {
+			t.Fatalf("alice signup: got %d", response.StatusCode)
+		}
+		accessToken, _, response := helper.LoginUser(t, app, "alice@example.com", "password1")
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("alice login: got %d", response.StatusCode)
+		}
+		if response := helper.SignupUser(t, app, "bob", "bob@example.com", "password1"); response.StatusCode != http.StatusCreated {
+			t.Fatalf("bob signup: got %d", response.StatusCode)
+		}
+		bobToken, _, response := helper.LoginUser(t, app, "bob@example.com", "password1")
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("bob login: got %d", response.StatusCode)
+		}
+
+		for i := 1; i <= 11; i++ {
+			shortURL := fmt.Sprintf("p%07d", i)
+			if _, err := app.Pool.Exec(context.Background(), "INSERT INTO urls_map (user_id, short_url, long_url, expired_at) SELECT id, $1, $2, NOW() + INTERVAL '30 day' FROM users WHERE email = $3", shortURL, "https://example.com/page/"+shortURL, "alice@example.com"); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if _, err := app.Pool.Exec(context.Background(), "INSERT INTO urls_map (user_id, short_url, long_url, expired_at) SELECT id, $1, $2, NOW() - INTERVAL '1 hour' FROM users WHERE email = $3", "e0000001", "https://example.com/expired", "alice@example.com"); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := app.Pool.Exec(context.Background(), "INSERT INTO urls_map (user_id, short_url, long_url, expired_at) SELECT id, $1, $2, NOW() + INTERVAL '30 day' FROM users WHERE email = $3", "b0000001", "https://example.com/bob", "bob@example.com"); err != nil {
+			t.Fatal(err)
+		}
+
+		response = helper.Request(t, app, http.MethodGet, "/api/v1/urls?limit=2", nil, bearer(accessToken), "")
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("expected status %d, got %d", http.StatusOK, response.StatusCode)
+		}
+		payload := helper.DecodeResponse[envelope.SuccessResponse](t, response)
+		data := payload.Data.(map[string]any)
+		urls, ok := data["urls"].([]any)
+		if !ok || len(urls) != 2 {
+			t.Fatalf("expected 2 urls with limit=2, got %#v", data["urls"])
+		}
+		if hasMore, ok := data["hasMore"].(bool); !ok || !hasMore {
+			t.Fatalf("expected hasMore to be true with more than 2 results, got %#v", data["hasMore"])
+		}
+
+		response = helper.Request(t, app, http.MethodGet, "/api/v1/urls?limit=0", nil, bearer(accessToken), "")
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("expected status %d, got %d", http.StatusOK, response.StatusCode)
+		}
+		payload = helper.DecodeResponse[envelope.SuccessResponse](t, response)
+		data = payload.Data.(map[string]any)
+		urls, ok = data["urls"].([]any)
+		if !ok || len(urls) != 1 {
+			t.Fatalf("expected minimum limit to clamp to 1, got %#v", data["urls"])
+		}
+
+		response = helper.Request(t, app, http.MethodGet, "/api/v1/urls?limit=999", nil, bearer(accessToken), "")
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("expected status %d, got %d", http.StatusOK, response.StatusCode)
+		}
+		payload = helper.DecodeResponse[envelope.SuccessResponse](t, response)
+		data = payload.Data.(map[string]any)
+		urls, ok = data["urls"].([]any)
+		if !ok || len(urls) != 10 {
+			t.Fatalf("expected max limit to clamp to 10, got %#v", data["urls"])
+		}
+		if hasMore, ok := data["hasMore"].(bool); !ok || !hasMore {
+			t.Fatalf("expected hasMore to be true when total exceeds 10 results, got %#v", data["hasMore"])
+		}
+
+		response = helper.Request(t, app, http.MethodGet, "/api/v1/urls?expiredAt=not-a-date", nil, bearer(accessToken), "")
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("expected status %d, got %d", http.StatusOK, response.StatusCode)
+		}
+		payload = helper.DecodeResponse[envelope.SuccessResponse](t, response)
+		data = payload.Data.(map[string]any)
+		urls, ok = data["urls"].([]any)
+		if !ok || len(urls) != 10 {
+			t.Fatalf("expected invalid expiredAt to fall back to the default window, got %#v", data["urls"])
+		}
+
+		response = helper.Request(t, app, http.MethodGet, "/api/v1/urls?expiredAt="+time.Now().Add(-1*time.Hour).Format(time.RFC3339), nil, bearer(accessToken), "")
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("expected status %d, got %d", http.StatusOK, response.StatusCode)
+		}
+		payload = helper.DecodeResponse[envelope.SuccessResponse](t, response)
+		data = payload.Data.(map[string]any)
+		urls, ok = data["urls"].([]any)
+		if !ok || len(urls) != 10 {
+			t.Fatalf("expected past expiredAt to fall back to the default window, got %#v", data["urls"])
+		}
+
+		response = helper.Request(t, app, http.MethodGet, "/api/v1/urls?limit=1&expiredAt="+time.Now().Add(24*time.Hour).Format(time.RFC3339), nil, bearer(accessToken), "")
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("expected status %d, got %d", http.StatusOK, response.StatusCode)
+		}
+		payload = helper.DecodeResponse[envelope.SuccessResponse](t, response)
+		data = payload.Data.(map[string]any)
+		urls, ok = data["urls"].([]any)
+		if !ok || len(urls) != 1 {
+			t.Fatalf("expected limit=1 to return a single URL, got %#v", data["urls"])
+		}
+		if hasMore, ok := data["hasMore"].(bool); !ok || !hasMore {
+			t.Fatalf("expected hasMore to be true when more pages remain, got %#v", data["hasMore"])
+		}
+
+		response = helper.Request(t, app, http.MethodGet, "/api/v1/urls?limit=11", nil, bearer(bobToken), "")
+		if response.StatusCode != http.StatusOK {
+			t.Fatalf("expected status %d, got %d", http.StatusOK, response.StatusCode)
+		}
+		payload = helper.DecodeResponse[envelope.SuccessResponse](t, response)
+		data = payload.Data.(map[string]any)
+		if data["urls"] == nil {
+			t.Fatalf("expected bob to receive his own URL list")
+		}
+
 		helper.Cleanup(t, app.Pool, app.Cache)
 	})
 }
