@@ -27,6 +27,7 @@ type UrlsStore = {
   previousPage: () => Promise<void>;
   nextPage: () => Promise<void>;
   getUrlsForUser(expiredAt: string): Promise<void>;
+  reset: () => void;
 };
 
 const initialState = {
@@ -57,7 +58,9 @@ export const useUrlsStore = create<UrlsStore>()(
           const { urls, hasMore } = response.data;
 
           const nextCursor =
-            urls && urls.length > 0 ? urls[urls.length - 1].expired_at : null;
+            hasMore && urls && urls.length > 0
+              ? urls[urls.length - 1].expired_at
+              : null;
 
           set({
             urls,

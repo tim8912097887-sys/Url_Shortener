@@ -24,7 +24,12 @@ export default function SignupForm() {
     handleBlur,
     handleSubmit,
   } = useForm<SignupSchemaType>({
-    initialValues: { username: "", email: "", password: "" },
+    initialValues: {
+      username: "",
+      email: "",
+      password: "",
+      confirmPassword: "",
+    },
     onSubmit: async (formValues) => {
       await signup(formValues);
       // Set state for login page to show "just signed up" message
