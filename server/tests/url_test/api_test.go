@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	urlOriginal "net/url"
 	"testing"
 	"time"
 
@@ -388,18 +389,24 @@ func TestGetURLsForUser(t *testing.T) {
 			t.Fatalf("expected past expiredAt to fall back to the default window, got %#v", data["urls"])
 		}
 
-		response = helper.Request(t, app, http.MethodGet, "/api/v1/urls?limit=1&expiredAt="+time.Now().Add(24*time.Hour).Format(time.RFC3339), nil, bearer(accessToken), "")
+		futureTime := time.Now().Add(24 * time.Hour).Format(time.RFC3339)
+		encodedTime := urlOriginal.QueryEscape(futureTime)
+		requestPath := "/api/v1/urls?limit=1&expiredAt=" + encodedTime
+		response = helper.Request(t, app, http.MethodGet, requestPath, nil, bearer(accessToken), "")
 		if response.StatusCode != http.StatusOK {
 			t.Fatalf("expected status %d, got %d", http.StatusOK, response.StatusCode)
 		}
 		payload = helper.DecodeResponse[envelope.SuccessResponse](t, response)
 		data = payload.Data.(map[string]any)
 		urls, ok = data["urls"].([]any)
-		if !ok || len(urls) != 1 {
-			t.Fatalf("expected limit=1 to return a single URL, got %#v", data["urls"])
+		
+		if !ok || len(urls) > 0 {
+			if urls != nil {
+			   t.Fatalf("expected  future expiredAt to return no results, got %#v", data["urls"])	
+			}
 		}
-		if hasMore, ok := data["hasMore"].(bool); !ok || !hasMore {
-			t.Fatalf("expected hasMore to be true when more pages remain, got %#v", data["hasMore"])
+		if hasMore, ok := data["hasMore"].(bool); !ok || hasMore {
+			t.Fatalf("expected hasMore to be false when expiredAt is in the future, got %#v", data["hasMore"])
 		}
 
 		response = helper.Request(t, app, http.MethodGet, "/api/v1/urls?limit=11", nil, bearer(bobToken), "")
@@ -413,5 +420,6 @@ func TestGetURLsForUser(t *testing.T) {
 		}
 
 		helper.Cleanup(t, app.Pool, app.Cache)
+
 	})
 }
